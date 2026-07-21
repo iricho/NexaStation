@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl x:Class="NexaStation.App.Controls.NexaVideoCard" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" DataContext="{x:Bind Card, Mode=OneWay}">
+  <Border Width="{Binding Width}" Height="{Binding Height}" CornerRadius="16" Background="{StaticResource NexaCardGradient}" BorderBrush="{StaticResource NexaAccentBorderBrush}" BorderThickness="1"><Grid><Image Source="{Binding Thumbnail}" Stretch="UniformToFill" /><Border VerticalAlignment="Bottom" Background="{StaticResource NexaArtworkCaptionBrush}" Padding="10"><Grid><TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" /><TextBlock Text="{Binding Duration}" HorizontalAlignment="Right" /></Grid></Border></Grid></Border>
+</UserControl>

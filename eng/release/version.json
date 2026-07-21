@@ -1,0 +1,11 @@
+{
+  "semanticVersion": "0.11.75-alpha.1",
+  "packageVersion": "0.11.75.1",
+  "releaseChannel": "Alpha",
+  "packageName": "NexaStation.Alpha",
+  "publisher": "CN=NexaStation Alpha",
+  "publisherDisplayName": "NexaStation Alpha",
+  "architecture": "x64",
+  "minimumWindowsVersion": "10.0.17763.0",
+  "diagnosticsFormatVersion": 1
+}

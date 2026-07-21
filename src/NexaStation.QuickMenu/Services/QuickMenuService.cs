@@ -1,0 +1,21 @@
+using NexaStation.QuickMenu.Models;
+using NexaStation.QuickMenu.Safety;
+using NexaStation.SystemIntegration.Models;
+using NexaStation.SystemIntegration.Services;
+
+namespace NexaStation.QuickMenu.Services;
+
+public sealed class QuickMenuService(ISystemVolumeService volume,IControllerStatusService controllers,INetworkStatusService network,ICurrentActivityService activity,HoldSafetyCoordinator holds):IQuickMenuService,IDisposable
+{
+    private readonly Dictionary<string,(QuickMenuAction Action,Func<CancellationToken,Task> Handler)> _actions=[];private readonly SemaphoreSlim _gate=new(1,1);private CancellationTokenSource? _refresh;private Func<Task>? _restoreFocus;private bool _systemAction;
+    private QuickMenuState _state=new(false,QuickMenuSection.QuickControls,null,null,null,new("NexaStation Home",null,null,"Direct"),new(0,false,null,null,false,"Not loaded"),[],new(false,"Unknown",null,null,null,null,DateTime.UtcNow),null,false,[]);
+    public bool IsOpen=>_state.IsOpen;public QuickMenuState State=>_state;public event EventHandler<QuickMenuStateChangedEventArgs>? StateChanged;
+    public void RegisterAction(QuickMenuAction action,Func<CancellationToken,Task> handler)=>_actions[action.Id]=(action,handler);
+    public async Task OpenAsync(QuickMenuOpenRequest request,CancellationToken cancellationToken=default){await _gate.WaitAsync(cancellationToken);try{if(IsOpen)return;_restoreFocus=request.RestoreFocusAsync;_state=_state with{IsOpen=true,OriginPageId=request.OriginPageId,OriginItemId=request.OriginItemId,OriginControlKey=request.OriginControlKey,CurrentActivity=activity.Current,Actions=_actions.Values.Select(x=>x.Action).ToArray()};Publish();_refresh=new CancellationTokenSource();_ = RefreshAsync(_refresh.Token);}finally{_gate.Release();}}
+    public async Task CloseAsync(CancellationToken cancellationToken=default){await _gate.WaitAsync(cancellationToken);try{if(!IsOpen)return;holds.Cancel();Interlocked.Exchange(ref _refresh,null)?.Cancel();_state=_state with{IsOpen=false,PendingConfirmation=null,IsSystemActionRunning=false};Publish();Func<Task>? restore=Interlocked.Exchange(ref _restoreFocus,null);if(restore is not null)await restore();}finally{_gate.Release();}}
+    public async Task ExecuteActionAsync(string actionId,CancellationToken cancellationToken=default){if(!_actions.TryGetValue(actionId,out var registration))throw new KeyNotFoundException($"Unknown Quick Menu action '{actionId}'.");if(!registration.Action.Enabled)throw new InvalidOperationException(registration.Action.DisabledReason??"This action is unavailable.");if(_systemAction)throw new InvalidOperationException("A system action is already running.");if(registration.Action.RequiresConfirmation&&_state.PendingConfirmation?.ActionId!=actionId){_state=_state with{PendingConfirmation=new(actionId,registration.Action.Label,registration.Action.RequiresHold,registration.Action.HoldDurationMilliseconds)};Publish();return;}if(registration.Action.RequiresHold&&!await holds.HoldAsync(registration.Action.HoldDurationMilliseconds,cancellationToken))return;bool system=registration.Action.ActionType is QuickMenuActionType.System or QuickMenuActionType.Destructive;try{_systemAction=system;_state=_state with{PendingConfirmation=null,IsSystemActionRunning=system};Publish();await registration.Handler(cancellationToken);}finally{_systemAction=false;_state=_state with{IsSystemActionRunning=false};Publish();}}
+    public void CancelPendingAction(){holds.Cancel();_state=_state with{PendingConfirmation=null};Publish();}
+    public void Dispose(){Interlocked.Exchange(ref _refresh,null)?.Cancel();_gate.Dispose();}
+    private async Task RefreshAsync(CancellationToken token){try{Task<SystemVolumeState> v=volume.GetStateAsync(token);Task<IReadOnlyList<ControllerStatus>> c=controllers.GetControllersAsync(token);Task<NetworkStatusSnapshot> n=network.GetSnapshotAsync(token);await Task.WhenAll(v,c,n);if(token.IsCancellationRequested||!IsOpen)return;_state=_state with{AudioStatus=await v,ControllerStatus=await c,NetworkStatus=await n,CurrentActivity=activity.Current};Publish();}catch(OperationCanceledException)when(token.IsCancellationRequested){}catch(Exception ex){_state=_state with{AudioStatus=_state.AudioStatus with{Available=false,FailureReason=ex.Message}};Publish();}}
+    private void Publish()=>StateChanged?.Invoke(this,new(_state));
+}

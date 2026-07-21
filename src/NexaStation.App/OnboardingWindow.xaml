@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="NexaStation.App.OnboardingWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:NexaStation.App.Controls">
+  <Grid Background="{StaticResource NexaBackgroundBrush}" Padding="64">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <Grid MaxWidth="1120" HorizontalAlignment="Stretch">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+      <StackPanel Spacing="6">
+        <TextBlock Text="NEXASTATION SETUP" Foreground="{StaticResource NexaAccentBrush}" FontWeight="SemiBold" CharacterSpacing="120" />
+        <TextBlock x:Name="ProgressText" Foreground="{StaticResource NexaMutedTextBrush}" />
+      </StackPanel>
+      <Button Grid.Column="1" Content="Exit setup" Click="ExitClicked" />
+    </Grid>
+
+    <Grid Grid.Row="1" MaxWidth="1120" HorizontalAlignment="Stretch" VerticalAlignment="Center">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="1.2*" /><ColumnDefinition Width="0.8*" /></Grid.ColumnDefinitions>
+      <StackPanel Margin="0,0,64,0" Spacing="18">
+        <ProgressBar x:Name="ProgressBar" Minimum="1" Maximum="10" Height="6" Foreground="{StaticResource NexaAccentBrush}" />
+        <TextBlock x:Name="StepTitle" FontSize="42" FontWeight="SemiBold" Foreground="{StaticResource NexaSoftWhiteBrush}" TextWrapping="Wrap" />
+        <TextBlock x:Name="StepDescription" FontSize="19" LineHeight="29" Foreground="{StaticResource NexaMutedTextBrush}" TextWrapping="Wrap" MaxWidth="680" HorizontalAlignment="Left" />
+        <TextBlock x:Name="RecoveryNotice" Foreground="{StaticResource NexaWarningBrush}" TextWrapping="Wrap" Visibility="Collapsed" />
+      </StackPanel>
+
+      <Border Grid.Column="1" Background="{StaticResource NexaPanelBrush}" BorderBrush="{StaticResource NexaCardBorderBrush}" BorderThickness="1" CornerRadius="16" Padding="28">
+        <StackPanel Spacing="18">
+          <TextBlock Text="Your choices" FontSize="22" FontWeight="SemiBold" />
+          <ComboBox x:Name="LayoutChoice" Header="Dashboard layout" SelectedIndex="0">
+            <ComboBoxItem Content="Modern Dashboard" Tag="Modern" /><ComboBoxItem Content="Classic Dashboard" Tag="Classic" /><ComboBoxItem Content="Compact Grid" Tag="Compact" />
+          </ComboBox>
+          <ComboBox x:Name="PerformanceChoice" Header="Performance profile" SelectedIndex="0">
+            <ComboBoxItem Content="Balanced (recommended)" Tag="Balanced" /><ComboBoxItem Content="High quality" Tag="Quality" /><ComboBoxItem Content="Low resource" Tag="Efficient" />
+          </ComboBox>
+          <CheckBox x:Name="ControllerChoice" Content="Enable controller navigation" IsChecked="True" />
+          <CheckBox x:Name="SteamChoice" Content="Guide me through Steam import" />
+          <CheckBox x:Name="EmulationChoice" Content="Guide me through emulator setup" />
+          <CheckBox x:Name="WindowsAppsChoice" Content="Scan installed Windows applications" IsChecked="True" />
+          <CheckBox x:Name="GalleryChoice" Content="Include my Pictures folder in Gallery" IsChecked="True" />
+          <CheckBox x:Name="PicturesPrivateChoice" Content="Keep this source private" />
+          <CheckBox x:Name="PicturesHomeChoice" Content="Show recent photos on Home" IsChecked="True" />
+          <CheckBox x:Name="PicturesSubfoldersChoice" Content="Include subfolders" IsChecked="True" />
+          <CheckBox x:Name="StartupChoice" Content="Start NexaStation after Windows sign-in" />
+          <CheckBox x:Name="DiagnosticsChoice" Content="Include local logs when I explicitly export diagnostics" />
+          <TextBlock x:Name="ReviewSummary" Foreground="{StaticResource NexaMutedTextBrush}" TextWrapping="Wrap" Visibility="Collapsed" />
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <StackPanel Grid.Row="2" Spacing="12">
+    <Grid MaxWidth="1120" HorizontalAlignment="Stretch">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+      <Button x:Name="BackButton" Content="Back" Click="BackClicked" MinWidth="130" />
+      <Button Grid.Column="1" Content="Skip setup" Click="SkipClicked" HorizontalAlignment="Right" Margin="0,0,16,0" />
+      <Button x:Name="NextButton" Grid.Column="2" Content="Continue" Click="NextClicked" MinWidth="180" Style="{StaticResource AccentButtonStyle}" />
+    </Grid>
+    <controls:NexaInputHintBar x:Name="InputHints" />
+    </StackPanel>
+  </Grid>
+</Window>

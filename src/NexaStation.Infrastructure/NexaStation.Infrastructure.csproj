@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <RootNamespace>NexaStation.Infrastructure</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NexaStation.Compatibility\NexaStation.Compatibility.csproj" />
+    <ProjectReference Include="..\NexaStation.Quality\NexaStation.Quality.csproj" />
+    <ProjectReference Include="..\NexaStation.Core\NexaStation.Core.csproj" />
+    <ProjectReference Include="..\NexaStation.Domain\NexaStation.Domain.csproj" />
+    <ProjectReference Include="..\NexaStation.Media\NexaStation.Media.csproj" />
+    <ProjectReference Include="..\NexaStation.MediaPlayer\NexaStation.MediaPlayer.csproj" />
+    <ProjectReference Include="..\NexaStation.QuickMenu\NexaStation.QuickMenu.csproj" />
+    <ProjectReference Include="..\NexaStation.Customization\NexaStation.Customization.csproj" />
+    <ProjectReference Include="..\NexaStation.Recovery\NexaStation.Recovery.csproj" />
+    <ProjectReference Include="..\NexaStation.Input\NexaStation.Input.csproj" />
+    <ProjectReference Include="..\NexaStation.TextInput\NexaStation.TextInput.csproj" />
+    <ProjectReference Include="..\NexaStation.Display\NexaStation.Display.csproj" />
+    <ProjectReference Include="..\NexaStation.Profiles\NexaStation.Profiles.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.3" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Persistence\Migrations\*.sql" />
+    <EmbeddedResource Include="DiscoverApps\discover-apps.v1.json" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,11 @@
+"AppState"
+{
+  "appid" "4242"
+  "name" "Fictional Starship"
+  "installdir" "FictionalStarship"
+  "StateFlags" "4"
+  "buildid" "98765"
+  "LastUpdated" "1700000000"
+  "SizeOnDisk" "123456789"
+  "UnknownFutureField" "safe"
+}

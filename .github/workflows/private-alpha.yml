@@ -1,0 +1,120 @@
+name: Private Alpha tester package
+
+on:
+  workflow_dispatch:
+    inputs:
+      createDraftRelease:
+        description: Create a draft GitHub release
+        required: false
+        default: 'false'
+  push:
+    tags:
+      - 'v0.11.75-alpha.*'
+
+permissions:
+  contents: write
+
+jobs:
+  private-alpha:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    environment: alpha-release
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Validate release metadata
+        shell: pwsh
+        run: ./eng/Test-ReleaseReadiness.ps1 -ReleaseTag '${{ github.ref_name }}' -AllowPrivateAlphaWithoutRootLicense
+
+      - name: Require protected signing inputs
+        shell: pwsh
+        env:
+          PFX_BASE64: ${{ secrets.NEXASTATION_ALPHA_PFX_BASE64 }}
+          PFX_PASSWORD: ${{ secrets.NEXASTATION_ALPHA_PFX_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:PFX_BASE64) -or [string]::IsNullOrWhiteSpace($env:PFX_PASSWORD)) {
+            throw 'Protected Alpha signing secrets are missing.'
+          }
+          [IO.File]::WriteAllBytes((Join-Path $env:RUNNER_TEMP 'NexaStation-Alpha.private.pfx'), [Convert]::FromBase64String($env:PFX_BASE64))
+
+      - name: Restore
+        run: dotnet restore NexaStation.sln
+
+      - name: Build x64 Release
+        run: dotnet build NexaStation.sln -c Release -p:Platform=x64 --no-restore
+
+      - name: Test x64 Release
+        run: dotnet test NexaStation.sln -c Release -p:Platform=x64 --no-build --no-restore
+
+      - name: Validate database migrations
+        run: dotnet test tests/NexaStation.Infrastructure.Tests/NexaStation.Infrastructure.Tests.csproj -c Release -p:Platform=x64 --no-build --no-restore --filter Phase9MigrationCompatibilityTests
+
+      - name: Build signed x64 MSIX
+        shell: pwsh
+        env:
+          PFX_PASSWORD: ${{ secrets.NEXASTATION_ALPHA_PFX_PASSWORD }}
+        run: |
+          dotnet publish src/NexaStation.App/NexaStation.App.csproj `
+            -c Release `
+            -p:Platform=x64 `
+            -p:GenerateAppxPackageOnBuild=true `
+            -p:AppxPackageSigningEnabled=true `
+            -p:PackageCertificateKeyFile="$env:RUNNER_TEMP\NexaStation-Alpha.private.pfx" `
+            -p:PackageCertificatePassword="$env:PFX_PASSWORD" `
+            -p:PublishSelfContainedApp=true `
+            --no-restore
+
+      - name: Export public certificate
+        shell: pwsh
+        env:
+          PFX_PASSWORD: ${{ secrets.NEXASTATION_ALPHA_PFX_PASSWORD }}
+        run: |
+          $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2((Join-Path $env:RUNNER_TEMP 'NexaStation-Alpha.private.pfx'), $env:PFX_PASSWORD, 'Exportable')
+          [IO.File]::WriteAllBytes((Join-Path $env:RUNNER_TEMP 'NexaStation-Alpha-Test.cer'), $cert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
+          "CERT_THUMBPRINT=$($cert.Thumbprint)" >> $env:GITHUB_ENV
+          "CERT_SUBJECT=$($cert.Subject)" >> $env:GITHUB_ENV
+
+      - name: Verify package signature
+        shell: pwsh
+        run: |
+          $msix = Get-ChildItem artifacts/packages -Recurse -Filter *.msix | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $msix) { throw 'No MSIX package was produced.' }
+          $signature = Get-AuthenticodeSignature -LiteralPath $msix.FullName
+          if ($signature.Status -ne 'Valid') { throw "MSIX signature is not valid: $($signature.StatusMessage)" }
+          if ($signature.SignerCertificate.Subject -ne $env:CERT_SUBJECT) { throw "Signer '$($signature.SignerCertificate.Subject)' does not match expected '$env:CERT_SUBJECT'." }
+          "MSIX_PATH=$($msix.FullName)" >> $env:GITHUB_ENV
+
+      - name: Build tester distribution bundle
+        shell: pwsh
+        run: |
+          ./eng/Build-PrivateAlphaBundle.ps1 `
+            -MsixPath "$env:MSIX_PATH" `
+            -CertificatePath "$env:RUNNER_TEMP\NexaStation-Alpha-Test.cer" `
+            -GitCommit '${{ github.sha }}' `
+            -Signed `
+            -SelfContained
+
+      - name: Upload private Alpha artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexastation-private-alpha-${{ github.run_number }}
+          path: artifacts/private-alpha/**
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Create draft GitHub release
+        if: github.event_name == 'push' || github.event.inputs.createDraftRelease == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          prerelease: true
+          files: artifacts/private-alpha/*.zip
+
+      - name: Remove signing material
+        if: always()
+        shell: pwsh
+        run: Remove-Item -LiteralPath (Join-Path $env:RUNNER_TEMP 'NexaStation-Alpha.private.pfx') -Force -ErrorAction SilentlyContinue

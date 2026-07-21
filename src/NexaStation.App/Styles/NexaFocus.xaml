@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <SolidColorBrush x:Key="NexaFocusPrimaryBrush" Color="#FFFFFFFF" />
+  <SolidColorBrush x:Key="NexaFocusSecondaryBrush" Color="{StaticResource NexaAccentColor}" />
+  <Style x:Key="NexaFocusableControlStyle" TargetType="Control">
+    <Setter Property="UseSystemFocusVisuals" Value="True" />
+    <Setter Property="FocusVisualPrimaryBrush" Value="{StaticResource NexaFocusPrimaryBrush}" />
+    <Setter Property="FocusVisualSecondaryBrush" Value="{StaticResource NexaFocusSecondaryBrush}" />
+    <Setter Property="FocusVisualPrimaryThickness" Value="3" />
+    <Setter Property="FocusVisualSecondaryThickness" Value="2" />
+    <Setter Property="FocusVisualMargin" Value="-4" />
+  </Style>
+</ResourceDictionary>

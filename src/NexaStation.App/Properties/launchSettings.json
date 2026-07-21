@@ -1,0 +1,7 @@
+{
+  "profiles": {
+    "NexaStation (Package)": {
+      "commandName": "MsixPackage"
+    }
+  }
+}

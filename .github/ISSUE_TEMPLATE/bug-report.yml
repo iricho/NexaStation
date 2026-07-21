@@ -1,0 +1,44 @@
+name: Bug report
+description: Report a reproducible NexaStation alpha defect
+title: "[Bug] "
+labels: ["needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not upload ROMs, games, photos, credentials, private paths, full databases, or unreviewed diagnostics bundles."
+  - type: input
+    id: version
+    attributes: { label: NexaStation version }
+    validations: { required: true }
+  - type: input
+    id: channel
+    attributes: { label: Release channel }
+    validations: { required: true }
+  - type: input
+    id: windows
+    attributes: { label: Windows version }
+    validations: { required: true }
+  - type: input
+    id: target
+    attributes: { label: Target application or game }
+  - type: input
+    id: provider
+    attributes: { label: Provider }
+  - type: textarea
+    id: expected
+    attributes: { label: Expected result }
+    validations: { required: true }
+  - type: textarea
+    id: actual
+    attributes: { label: Actual result }
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes: { label: Reproduction steps }
+    validations: { required: true }
+  - type: textarea
+    id: safe_mode
+    attributes: { label: Safe Mode result }
+  - type: input
+    id: diagnostics
+    attributes: { label: Optional reviewed diagnostics bundle name }

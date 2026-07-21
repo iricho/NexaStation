@@ -1,0 +1,7 @@
+CREATE TABLE ArtworkJobs(
+ Id TEXT PRIMARY KEY, JobType INTEGER NOT NULL, Status INTEGER NOT NULL, ScopeJson TEXT NOT NULL,
+ SettingsJson TEXT NOT NULL, TotalItems INTEGER NOT NULL, CompletedItems INTEGER NOT NULL DEFAULT 0,
+ MatchedItems INTEGER NOT NULL DEFAULT 0, ReviewItems INTEGER NOT NULL DEFAULT 0,
+ FailedItems INTEGER NOT NULL DEFAULT 0, CreatedAtUtc TEXT NOT NULL, StartedAtUtc TEXT NULL,
+ CompletedAtUtc TEXT NULL, LastUpdatedAtUtc TEXT NOT NULL);
+CREATE INDEX IX_ArtworkJobs_Status ON ArtworkJobs(Status,LastUpdatedAtUtc);

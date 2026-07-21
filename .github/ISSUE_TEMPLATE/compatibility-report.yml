@@ -1,0 +1,35 @@
+name: Compatibility report
+description: Report launch, tracking, restoration, or controller compatibility
+title: "[Compatibility] "
+labels: ["compatibility", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: "Use stable target identity where safe. Do not include personal paths, ROMs, copyrighted files, secrets, or controller serial numbers."
+  - type: input
+    id: target
+    attributes: { label: Target identity }
+    validations: { required: true }
+  - type: input
+    id: provider
+    attributes: { label: Provider }
+    validations: { required: true }
+  - type: input
+    id: installed_version
+    attributes: { label: Installed target version }
+  - type: dropdown
+    id: launch
+    attributes: { label: Launch result, options: ["Launches", "Launches with limitations", "Broken", "Unsupported", "Needs retest"] }
+    validations: { required: true }
+  - type: textarea
+    id: tracking
+    attributes: { label: Process tracking result }
+  - type: textarea
+    id: restoration
+    attributes: { label: Frontend/focus restoration result }
+  - type: textarea
+    id: controller
+    attributes: { label: Controller behavior }
+  - type: textarea
+    id: workaround
+    attributes: { label: Safe workaround }

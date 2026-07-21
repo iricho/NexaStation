@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <LinearGradientBrush x:Key="NexaCardGradient" StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#2F4269" Offset="0" /><GradientStop Color="#182C42" Offset="0.55" /><GradientStop Color="#153836" Offset="1" /></LinearGradientBrush>
+  <LinearGradientBrush x:Key="NexaCardScrimBrush" StartPoint="0.5,0" EndPoint="0.5,1"><GradientStop Color="#0010141D" Offset="0.28" /><GradientStop Color="#6A090B13" Offset="0.64" /><GradientStop Color="#F4090B13" Offset="1" /></LinearGradientBrush>
+  <Style x:Key="CardListStyle" TargetType="ListViewItem" BasedOn="{StaticResource NexaFocusableControlStyle}">
+    <Setter Property="Padding" Value="0" /><Setter Property="Margin" Value="0,0,18,6" /><Setter Property="CornerRadius" Value="16" /><Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="VerticalContentAlignment" Value="Stretch" />
+  </Style>
+  <Style x:Key="CardGridStyle" TargetType="GridViewItem" BasedOn="{StaticResource NexaFocusableControlStyle}">
+    <Setter Property="Padding" Value="0" /><Setter Property="Margin" Value="0,0,18,6" /><Setter Property="CornerRadius" Value="16" /><Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="VerticalContentAlignment" Value="Stretch" />
+  </Style>
+  <Style x:Key="HomeCardListStyle" TargetType="ListViewItem" BasedOn="{StaticResource NexaFocusableControlStyle}">
+    <Setter Property="Padding" Value="0" /><Setter Property="Margin" Value="0,0,8,0" /><Setter Property="CornerRadius" Value="12" /><Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="VerticalContentAlignment" Value="Stretch" />
+  </Style>
+  <Style x:Key="NexaCardBorderStyle" TargetType="Border"><Setter Property="CornerRadius" Value="{StaticResource NexaRadiusLarge}" /><Setter Property="BorderBrush" Value="{StaticResource NexaCardBorderBrush}" /><Setter Property="BorderThickness" Value="1" /></Style>
+</ResourceDictionary>

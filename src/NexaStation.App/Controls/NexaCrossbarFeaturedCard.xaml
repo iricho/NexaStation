@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="NexaStation.App.Controls.NexaCrossbarFeaturedCard"
+    x:Name="RootControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:NexaStation.App.Controls"
+    DataContext="{x:Bind Card, Mode=OneWay}"
+    IsTabStop="False">
+  <Border Height="184" CornerRadius="10" BorderBrush="#365BA0D8" BorderThickness="1" Background="#B7081833" AutomationProperties.Name="{Binding Title}">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+      <Border Margin="12" CornerRadius="8">
+        <local:NexaArtworkSurface Source="{Binding Artwork}" FallbackBrush="{Binding FallbackBrush}" FallbackText="{Binding FallbackInitial}" />
+      </Border>
+      <StackPanel Grid.Column="1" Margin="22,18,24,18" Spacing="10" VerticalAlignment="Center">
+        <TextBlock Text="{Binding Title}" FontSize="23" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+        <StackPanel Orientation="Horizontal" Spacing="9">
+          <FontIcon Glyph="&#xE823;" FontSize="14" Foreground="#FF8EA7C8" />
+          <TextBlock Text="{Binding Playtime}" FontSize="13" Foreground="#FF9EB2CF" />
+        </StackPanel>
+        <Grid Margin="0,2,36,0">
+          <Border Height="5" CornerRadius="3" Background="#355E7395" />
+          <Border Width="154" Height="5" CornerRadius="3" HorizontalAlignment="Left" Background="#FF62B8FF" />
+        </Grid>
+        <TextBlock Text="{Binding ActivityLabel}" FontSize="12" Foreground="#FFB5C5DC" TextTrimming="CharacterEllipsis" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</UserControl>

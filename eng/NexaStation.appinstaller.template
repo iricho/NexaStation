@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Release automation replaces every {{...}} token only after signing succeeds. -->
+<AppInstaller
+    xmlns="http://schemas.microsoft.com/appx/appinstaller/2018"
+    Version="{{PACKAGE_VERSION}}"
+    Uri="{{APPINSTALLER_URI}}">
+  <MainPackage
+      Name="5f289e7c-3bd4-4d42-9dc6-301a98624d7f"
+      Publisher="{{SIGNING_PUBLISHER}}"
+      Version="{{PACKAGE_VERSION}}"
+      ProcessorArchitecture="x64"
+      Uri="{{MSIX_URI}}" />
+  <UpdateSettings>
+    <OnLaunch HoursBetweenUpdateChecks="24" ShowPrompt="true" UpdateBlocksActivation="false" />
+  </UpdateSettings>
+</AppInstaller>

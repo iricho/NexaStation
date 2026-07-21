@@ -1,0 +1,34 @@
+name: Performance report
+description: Submit repeatable synthetic or privacy-reviewed measurements
+title: "[Performance] "
+labels: ["performance", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not attach personal libraries, Gallery media, full databases, paths, or machine serial identifiers."
+  - type: textarea
+    id: machine
+    attributes: { label: Non-identifying machine summary }
+    validations: { required: true }
+  - type: input
+    id: preset
+    attributes: { label: Visual preset }
+    validations: { required: true }
+  - type: input
+    id: resolution
+    attributes: { label: Display resolution and scaling }
+    validations: { required: true }
+  - type: input
+    id: library_size
+    attributes: { label: Library and Gallery size }
+  - type: textarea
+    id: scenario
+    attributes: { label: Scenario and reproduction steps }
+    validations: { required: true }
+  - type: textarea
+    id: measurements
+    attributes: { label: Iterations, median, range, and baseline }
+    validations: { required: true }
+  - type: input
+    id: diagnostics
+    attributes: { label: Optional reviewed diagnostics bundle name }

@@ -1,0 +1,22 @@
+<Project>
+  <PropertyGroup>
+    <NexaStationVersion>0.11.75-alpha.1</NexaStationVersion>
+    <NexaStationPackageVersion>0.11.75.1</NexaStationPackageVersion>
+    <NexaStationReleaseChannel>Alpha</NexaStationReleaseChannel>
+    <NexaStationPackageName>NexaStation.Alpha</NexaStationPackageName>
+    <NexaStationPublisher>CN=NexaStation Alpha</NexaStationPublisher>
+    <NexaStationPublisherDisplayName>NexaStation Alpha</NexaStationPublisherDisplayName>
+    <NexaStationArchitecture>x64</NexaStationArchitecture>
+    <NexaStationDiagnosticsFormatVersion>1</NexaStationDiagnosticsFormatVersion>
+    <Version>$(NexaStationVersion)</Version>
+    <AssemblyVersion>$(NexaStationPackageVersion)</AssemblyVersion>
+    <FileVersion>$(NexaStationPackageVersion)</FileVersion>
+    <InformationalVersion>$(NexaStationVersion)</InformationalVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <AssemblyMetadata Include="NexaStationPackageVersion" Value="$(NexaStationPackageVersion)" />
+    <AssemblyMetadata Include="NexaStationReleaseChannel" Value="$(NexaStationReleaseChannel)" />
+    <AssemblyMetadata Include="NexaStationArchitecture" Value="$(NexaStationArchitecture)" />
+    <AssemblyMetadata Include="NexaStationDiagnosticsFormatVersion" Value="$(NexaStationDiagnosticsFormatVersion)" />
+  </ItemGroup>
+</Project>

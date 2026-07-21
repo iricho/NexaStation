@@ -1,0 +1,90 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>NexaStation.App</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x86;x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+    <PublishProfile>win-$(Platform).pubxml</PublishProfile>
+    <UseWinUI>true</UseWinUI>
+    <WinUISDKReferences>false</WinUISDKReferences>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <AppxPackageSigningEnabled Condition="'$(PackageCertificateThumbprint)' == ''">false</AppxPackageSigningEnabled>
+    <AppxPackageSigningEnabled Condition="'$(PackageCertificateThumbprint)' != ''">true</AppxPackageSigningEnabled>
+    <AppxPackageDir>C:\Users\ghala\Documents\NexaStation\outputtest\</AppxPackageDir>
+    <AppxBundle>Never</AppxBundle>
+    <GenerateAppInstallerFile>false</GenerateAppInstallerFile>
+    <ApplicationIcon />
+    <WindowsAppSDKSelfContained Condition="'$(PublishSelfContainedApp)' == 'true'">true</WindowsAppSDKSelfContained>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.2.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NexaStation.Compatibility\NexaStation.Compatibility.csproj" />
+    <ProjectReference Include="..\NexaStation.Quality\NexaStation.Quality.csproj" />
+    <ProjectReference Include="..\NexaStation.Feedback\NexaStation.Feedback.csproj" />
+    <ProjectReference Include="..\NexaStation.Core\NexaStation.Core.csproj" />
+    <ProjectReference Include="..\NexaStation.Domain\NexaStation.Domain.csproj" />
+    <ProjectReference Include="..\NexaStation.Infrastructure\NexaStation.Infrastructure.csproj" />
+    <ProjectReference Include="..\NexaStation.Providers.Steam\NexaStation.Providers.Steam.csproj" />
+    <ProjectReference Include="..\NexaStation.Providers.Emulation\NexaStation.Providers.Emulation.csproj" />
+    <ProjectReference Include="..\NexaStation.Providers.WindowsApps\NexaStation.Providers.WindowsApps.csproj" />
+    <ProjectReference Include="..\NexaStation.DesktopControl\NexaStation.DesktopControl.csproj" />
+    <ProjectReference Include="..\NexaStation.Providers.Gallery\NexaStation.Providers.Gallery.csproj" />
+    <ProjectReference Include="..\NexaStation.Gallery\NexaStation.Gallery.csproj" />
+    <ProjectReference Include="..\NexaStation.Media\NexaStation.Media.csproj" />
+    <ProjectReference Include="..\NexaStation.MediaPlayer\NexaStation.MediaPlayer.csproj" />
+    <ProjectReference Include="..\NexaStation.EmulatorDiscovery\NexaStation.EmulatorDiscovery.csproj" />
+    <ProjectReference Include="..\NexaStation.Interaction\NexaStation.Interaction.csproj" />
+    <ProjectReference Include="..\NexaStation.UI.Shared\NexaStation.UI.Shared.csproj" />
+    <ProjectReference Include="..\NexaStation.UI.Themes.Nexa\NexaStation.UI.Themes.Nexa.csproj" />
+    <ProjectReference Include="..\NexaStation.UI.Themes.Crossbar\NexaStation.UI.Themes.Crossbar.csproj" />
+    <ProjectReference Include="..\NexaStation.SystemIntegration\NexaStation.SystemIntegration.csproj" />
+    <ProjectReference Include="..\NexaStation.QuickMenu\NexaStation.QuickMenu.csproj" />
+    <ProjectReference Include="..\NexaStation.Customization\NexaStation.Customization.csproj" />
+    <ProjectReference Include="..\NexaStation.Presentation\NexaStation.Presentation.csproj" />
+    <ProjectReference Include="..\NexaStation.Onboarding\NexaStation.Onboarding.csproj" />
+    <ProjectReference Include="..\NexaStation.Recovery\NexaStation.Recovery.csproj" />
+    <ProjectReference Include="..\NexaStation.Release\NexaStation.Release.csproj" />
+    <ProjectReference Include="..\NexaStation.Updates\NexaStation.Updates.csproj" />
+    <ProjectReference Include="..\NexaStation.Input\NexaStation.Input.csproj" />
+    <ProjectReference Include="..\NexaStation.TextInput\NexaStation.TextInput.csproj" />
+    <ProjectReference Include="..\NexaStation.Display\NexaStation.Display.csproj" />
+    <ProjectReference Include="..\NexaStation.Profiles\NexaStation.Profiles.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Assets\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Manifest Include="$(ApplicationManifest)" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)' != 'true' and '$(EnableMsixTooling)' == 'true'">
+    <ProjectCapability Include="Msix" />
+  </ItemGroup>
+  <PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)' != 'true' and '$(EnableMsixTooling)' == 'true'">
+    <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">false</PublishReadyToRun>
+    <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">true</PublishReadyToRun>
+    <PublishTrimmed>false</PublishTrimmed>
+    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
+    <PackageCertificateKeyFile>NexaStation.App_TemporaryKey.pfx</PackageCertificateKeyFile>
+    <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
+    <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
+    <GenerateTestArtifacts>False</GenerateTestArtifacts>
+    <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
+  </PropertyGroup>
+  <Target Name="ValidatePlayStationGlyphAssets" BeforeTargets="PrepareForBuild">
+    <Error Condition="!Exists('Assets\InputGlyphs\PlayStation\ps-cross.png')" Text="Required PlayStation Cross glyph asset is missing." />
+    <Error Condition="!Exists('Assets\InputGlyphs\PlayStation\ps-circle.png')" Text="Required PlayStation Circle glyph asset is missing." />
+    <Error Condition="!Exists('Assets\InputGlyphs\PlayStation\ps-square.png')" Text="Required PlayStation Square glyph asset is missing." />
+    <Error Condition="!Exists('Assets\InputGlyphs\PlayStation\ps-triangle.png')" Text="Required PlayStation Triangle glyph asset is missing." />
+  </Target>
+</Project>

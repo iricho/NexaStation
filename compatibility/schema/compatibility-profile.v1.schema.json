@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nexastation.local/schema/compatibility-profile.v1.schema.json",
+  "title": "NexaStation declarative compatibility profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "targetMatcher", "profileVersion", "source", "rules", "problemDescription", "reproductionSteps", "verificationResult", "contributorNotes"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$" },
+    "targetMatcher": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "targetType": { "type": "string" },
+        "providerId": { "type": "string" },
+        "providerItemId": { "type": "string" },
+        "platformId": { "type": "string" },
+        "emulatorAdapterId": { "type": "string" },
+        "executableIdentity": { "type": "string", "pattern": "^[^\\/]+$" },
+        "appUserModelId": { "type": "string" },
+        "controllerFamily": { "type": "string" },
+        "displayIdentity": { "type": "string" }
+      },
+      "minProperties": 2
+    },
+    "versionConstraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "application": { "type": "string" }, "windows": { "type": "string" }, "adapter": { "type": "string" } }
+    },
+    "profileVersion": { "type": "integer", "minimum": 1 },
+    "source": { "enum": ["BuiltIn", "User", "ImportedSignedFeed", "GeneratedDiagnosticSuggestion"] },
+    "enabled": { "type": "boolean" },
+    "rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "launch": { "$ref": "#/$defs/launch" },
+        "tracking": { "$ref": "#/$defs/tracking" },
+        "window": { "$ref": "#/$defs/window" },
+        "input": { "$ref": "#/$defs/input" },
+        "artwork": { "$ref": "#/$defs/artwork" },
+        "performance": { "$ref": "#/$defs/performance" }
+      }
+    },
+    "problemDescription": { "type": "string", "minLength": 10 },
+    "reproductionSteps": { "type": "string", "minLength": 10 },
+    "verificationResult": { "type": "string", "minLength": 5 },
+    "contributorNotes": { "type": "string" }
+  },
+  "$defs": {
+    "launch": { "type": "object", "additionalProperties": false, "properties": { "launchTarget": { "type": "string" }, "workingDirectory": { "type": "string" }, "adapterApprovedArguments": { "type": "array", "items": { "type": "string" }, "maxItems": 16 }, "startupTimeoutSeconds": { "type": "integer", "minimum": 1, "maximum": 600 }, "frontendHideDelayMilliseconds": { "type": "integer", "minimum": 0, "maximum": 30000 }, "keepFrontendVisible": { "type": "boolean" }, "useShellActivation": { "type": "boolean" }, "disableProcessTracking": { "type": "boolean" }, "useManualReturn": { "type": "boolean" } } },
+    "tracking": { "type": "object", "additionalProperties": false, "properties": { "expectedExecutableName": { "type": "string", "pattern": "^[^\\/]+$" }, "expectedRelativeExecutablePath": { "type": "string" }, "ignoredProcessNames": { "type": "array", "items": { "type": "string", "pattern": "^[^\\/]+$" }, "maxItems": 32 }, "waitForAllMatchingProcesses": { "type": "boolean" }, "waitForProcessReplacement": { "type": "boolean" }, "detectionTimeoutSeconds": { "type": "integer", "minimum": 1, "maximum": 600 }, "exitGracePeriodSeconds": { "type": "integer", "minimum": 0, "maximum": 120 }, "useForegroundWindow": { "type": "boolean" }, "useLaunchedProcess": { "type": "boolean" }, "useActivatedPidHint": { "type": "boolean" } } },
+    "window": { "type": "object", "additionalProperties": false, "properties": { "fullscreenRestoreDelayMilliseconds": { "type": "integer", "minimum": 0, "maximum": 30000 }, "restoreMaximizedBorderless": { "type": "boolean" }, "doNotForceForeground": { "type": "boolean" }, "restoreOnlyAfterManualAction": { "type": "boolean" }, "preferredMonitorStableId": { "type": "string" }, "disableMonitorSwitching": { "type": "boolean" } } },
+    "input": { "type": "object", "additionalProperties": false, "properties": { "disableDesktopControllerMode": { "type": "boolean" }, "controllerGlyphFamily": { "type": "string" }, "navigationDeadzone": { "type": "number", "minimum": 0, "maximum": 0.95 }, "repeatDelayMilliseconds": { "type": "integer", "minimum": 100, "maximum": 5000 }, "repeatRateMilliseconds": { "type": "integer", "minimum": 25, "maximum": 2000 }, "disableAnalogNavigation": { "type": "boolean" }, "useDpadOnly": { "type": "boolean" }, "confirmBackConvention": { "type": "string" }, "disableBatteryPolling": { "type": "boolean" } } },
+    "artwork": { "type": "object", "additionalProperties": false, "properties": { "maximumArtworkDimension": { "type": "integer", "minimum": 64, "maximum": 8192 }, "preferWideHero": { "type": "boolean" }, "disableUpscaling": { "type": "boolean" } } },
+    "performance": { "type": "object", "additionalProperties": false, "properties": { "disableDynamicBackground": { "type": "boolean" }, "pauseThumbnailWork": { "type": "boolean" }, "reduceArtworkResolution": { "type": "boolean" }, "disableBlurWhileRunning": { "type": "boolean" }, "providerRefreshDelaySeconds": { "type": "integer", "minimum": 0, "maximum": 3600 } } }
+  }
+}

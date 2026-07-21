@@ -1,0 +1,68 @@
+using System.Collections.Concurrent;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Globalization;
+using NexaStation.Core;
+using NexaStation.Domain;
+using Windows.Graphics.Imaging;
+using Windows.Storage.Streams;
+using Windows.System;
+
+namespace NexaStation.Infrastructure.Capture;
+
+public sealed class SessionCaptureConsentService : ICaptureConsentService
+{
+    private readonly ConcurrentDictionary<string,CaptureGesture> _gestures=new(StringComparer.Ordinal);private static readonly TimeSpan Lifetime=TimeSpan.FromSeconds(15);
+    public CaptureGesture IssueForDirectUserAction(string action){if(string.IsNullOrWhiteSpace(action))throw new ArgumentException("A direct capture action is required.",nameof(action));DateTime now=DateTime.UtcNow;CaptureGesture gesture=new(Convert.ToHexString(RandomNumberGenerator.GetBytes(24)),action,now,now+Lifetime);_gestures[gesture.Token]=gesture;return gesture;}
+    public bool Consume(string token,string expectedAction){if(string.IsNullOrWhiteSpace(token)||!_gestures.TryRemove(token,out CaptureGesture? gesture))return false;return gesture.ExpiresAtUtc>=DateTime.UtcNow&&string.Equals(gesture.Action,expectedAction,StringComparison.Ordinal);}
+    public void RevokeAll()=>_gestures.Clear();
+}
+
+public sealed class UserInitiatedScreenshotCaptureService(ICaptureConsentService consent,IScreenshotCapturePlatform platform,ICapturedMediaStore mediaStore,IActivityTimelineService timeline,IGalleryLibraryService gallery) : IScreenshotCaptureService
+{
+    public Task<CaptureAvailability> GetAvailabilityAsync(CancellationToken cancellationToken=default){cancellationToken.ThrowIfCancellationRequested();CaptureAvailability result=OperatingSystem.IsWindows()?new(CaptureAvailabilityState.Available,"Screenshots require a direct action for every capture.",new[]{CaptureSourceMode.ActiveTrackedWindow,CaptureSourceMode.CurrentDisplay,CaptureSourceMode.NexaStationWindow,CaptureSourceMode.SnippingToolFallback}):new(CaptureAvailabilityState.Unavailable,"Screenshot capture is unavailable on this platform.",Array.Empty<CaptureSourceMode>());return Task.FromResult(result);}
+    public async Task<ScreenshotCaptureResult> CaptureAsync(ScreenshotCaptureRequest request,CancellationToken cancellationToken=default)
+    {
+        ArgumentNullException.ThrowIfNull(request);if(!request.DirectUserAction||!consent.Consume(request.UserGestureToken,"CaptureScreenshot"))return Failure(CaptureFailureCode.ConsentRequired,"A screenshot can be created only from a direct action in the current session.");
+        if(request.SourceMode is CaptureSourceMode.SystemPicker or CaptureSourceMode.SnippingToolFallback)return Failure(CaptureFailureCode.Unavailable,"Use the visible Snipping Tool action for system-picker capture; NexaStation does not claim or import that result automatically.");
+        if(string.IsNullOrWhiteSpace(request.DestinationFolder))return Failure(CaptureFailureCode.StorageFailed,"Choose and approve a screenshot folder first.");
+        string folder=Path.GetFullPath(request.DestinationFolder);Directory.CreateDirectory(folder);DriveInfo drive=new(Path.GetPathRoot(folder)!);if(drive.AvailableFreeSpace<128L*1024*1024)return Failure(CaptureFailureCode.InsufficientSpace,"The screenshot folder has insufficient free space.");
+        EncodedCaptureFrame frame;try{frame=await platform.CaptureAsync(request,cancellationToken).ConfigureAwait(false);}catch(OperationCanceledException){return new(false,true,null,null,0,0,0,null,CaptureFailureCode.Cancelled,"Screenshot capture was cancelled.");}catch(UnauthorizedAccessException){return Failure(CaptureFailureCode.ProtectedContent,"Windows did not permit capture of that target.");}catch(InvalidOperationException ex){return Failure(CaptureFailureCode.Unavailable,ex.Message);}
+        if(frame.Width is <1 or >16384||frame.Height is <1 or >16384||frame.Bytes.Length is <16 or >100*1024*1024)return Failure(CaptureFailureCode.InvalidDimensions,"The captured image exceeded safe dimensions or size.");if(!ValidSignature(frame.Bytes,frame.Format))return Failure(CaptureFailureCode.ValidationFailed,"The encoded screenshot did not pass image validation.");
+        DateTime now=DateTime.UtcNow;string title=Sanitize(request.SanitizedTitle);string stem="NexaStation_"+(string.IsNullOrEmpty(title)?string.Empty:title+"_")+now.ToLocalTime().ToString("yyyy-MM-dd_HH-mm-ss",CultureInfo.InvariantCulture);string extension=frame.Format==CaptureOutputFormat.Png?".png":".jpg";string path=UniquePath(folder,stem,extension);string temp=path+"."+Guid.NewGuid().ToString("N")+".tmp";
+        try{await using(FileStream stream=new(temp,FileMode.CreateNew,FileAccess.Write,FileShare.None,81920,FileOptions.Asynchronous|FileOptions.WriteThrough)){await stream.WriteAsync(frame.Bytes,cancellationToken).ConfigureAwait(false);await stream.FlushAsync(cancellationToken).ConfigureAwait(false);}File.Move(temp,path,false);}catch(Exception ex) when(ex is IOException or UnauthorizedAccessException){return Failure(CaptureFailureCode.StorageFailed,$"The screenshot could not be saved: {ex.Message}");}finally{if(File.Exists(temp))File.Delete(temp);}
+        string hash=Convert.ToHexString(SHA256.HashData(frame.Bytes)).ToLowerInvariant();string id=Guid.NewGuid().ToString("N");bool imported=false;if(request.ImportToGallery)imported=await gallery.IndexApprovedFileAsync(path,cancellationToken).ConfigureAwait(false) is not null;
+        CapturedMedia media=new(id,CaptureType.Screenshot,path,Path.GetFullPath(path),request.TargetLibraryItemId,request.ActivitySessionId,now,frame.Width,frame.Height,frame.Bytes.LongLength,frame.Format,CaptureSource.NexaStation,request.IncludeCursor,imported,request.PrivacyLevel,hash,now);await mediaStore.SaveAsync(media,cancellationToken).ConfigureAwait(false);
+        await timeline.RecordAsync(new(Guid.NewGuid().ToString("N"),ActivityEventType.ScreenshotCaptured,ActivityTargetType.Capture,id,request.ActivitySessionId,request.SanitizedTitle,"Screenshot",null,null,now,null,null,ActivityResult.Succeeded,request.PrivacyLevel,MetadataJson:System.Text.Json.JsonSerializer.Serialize(new{CapturedMediaId=id,ImportedToGallery=imported}),CreatedAtUtc:now),cancellationToken).ConfigureAwait(false);
+        return new(true,false,path,id,frame.Width,frame.Height,frame.Bytes.LongLength,hash,CaptureFailureCode.None,imported?"Screenshot saved and added to Gallery.":"Screenshot saved.");
+    }
+    private static ScreenshotCaptureResult Failure(CaptureFailureCode code,string message)=>new(false,false,null,null,0,0,0,null,code,message);
+    private static bool ValidSignature(byte[] bytes,CaptureOutputFormat format)=>format==CaptureOutputFormat.Png?bytes.AsSpan().StartsWith(new byte[]{137,80,78,71,13,10,26,10})&&bytes.AsSpan(bytes.Length-8).SequenceEqual(new byte[]{73,69,78,68,174,66,96,130}):bytes[0]==0xFF&&bytes[1]==0xD8&&bytes[^2]==0xFF&&bytes[^1]==0xD9;
+    private static string Sanitize(string? value){if(string.IsNullOrWhiteSpace(value))return string.Empty;string clean=new(value.Where(c=>char.IsLetterOrDigit(c)||c is '-' or '_').Take(48).ToArray());return clean.Trim('_','-');}
+    private static string UniquePath(string folder,string stem,string extension){for(int i=0;i<1000;i++){string suffix=i==0?string.Empty:$"_{i}";string path=Path.Combine(folder,stem+suffix+extension);if(!File.Exists(path))return path;}throw new IOException("A unique screenshot filename could not be allocated.");}
+}
+
+public sealed class WindowsGdiScreenshotPlatform : IScreenshotCapturePlatform
+{
+    public async Task<EncodedCaptureFrame> CaptureAsync(ScreenshotCaptureRequest request,CancellationToken cancellationToken=default)
+    {
+        if(!OperatingSystem.IsWindows())throw new InvalidOperationException("Windows screenshot capture is unavailable.");nint window=request.SourceMode==CaptureSourceMode.NexaStationWindow&&nint.TryParse(request.TargetWindowIdentity,out nint explicitWindow)?explicitWindow:GetForegroundWindow();if(window==0)throw new InvalidOperationException("No capturable foreground window is available.");RECT bounds;
+        if(request.SourceMode==CaptureSourceMode.CurrentDisplay){nint monitor=MonitorFromWindow(window,2);MONITORINFO info=new(){cbSize=(uint)Marshal.SizeOf<MONITORINFO>()};if(!GetMonitorInfo(monitor,ref info))throw new InvalidOperationException("Windows could not resolve the selected display.");bounds=info.rcMonitor;}else if(!GetWindowRect(window,out bounds))throw new InvalidOperationException("Windows could not resolve the selected window.");
+        int width=bounds.Right-bounds.Left,height=bounds.Bottom-bounds.Top;if(width is <1 or >16384||height is <1 or >16384)throw new InvalidOperationException("The selected capture target has invalid dimensions.");byte[] pixels=CapturePixels(bounds,width,height,request.IncludeCursor);return await EncodeAsync(pixels,width,height,request.OutputFormat,request.JpegQuality,cancellationToken).ConfigureAwait(false);
+    }
+    private static byte[] CapturePixels(RECT bounds,int width,int height,bool cursor)
+    {
+        nint screen=GetDC(0),memory=CreateCompatibleDC(screen),bitmap=CreateCompatibleBitmap(screen,width,height),old=SelectObject(memory,bitmap);try{if(!BitBlt(memory,0,0,width,height,screen,bounds.Left,bounds.Top,0x00CC0020|0x40000000))throw new InvalidOperationException("Windows did not return a capture frame.");if(cursor)DrawCursor(memory,bounds);BITMAPINFO info=new(){bmiHeader=new(){biSize=(uint)Marshal.SizeOf<BITMAPINFOHEADER>(),biWidth=width,biHeight=-height,biPlanes=1,biBitCount=32,biCompression=0}};byte[] bytes=new byte[checked(width*height*4)];if(GetDIBits(memory,bitmap,0,(uint)height,bytes,ref info,0)==0)throw new InvalidOperationException("Windows could not read the capture frame.");return bytes;}finally{_ = SelectObject(memory,old);_ = DeleteObject(bitmap);_ = DeleteDC(memory);_ = ReleaseDC(0,screen);}
+    }
+    private static void DrawCursor(nint dc,RECT bounds){CURSORINFO info=new(){cbSize=(uint)Marshal.SizeOf<CURSORINFO>()};if(GetCursorInfo(ref info)&&info.flags==1&&info.hCursor!=0)DrawIconEx(dc,info.ptScreenPos.X-bounds.Left,info.ptScreenPos.Y-bounds.Top,info.hCursor,0,0,0,0,3);}
+    private static async Task<EncodedCaptureFrame> EncodeAsync(byte[] pixels,int width,int height,CaptureOutputFormat format,int quality,CancellationToken token)
+    {_ = quality;using InMemoryRandomAccessStream stream=new();Guid codec=format==CaptureOutputFormat.Png?BitmapEncoder.PngEncoderId:BitmapEncoder.JpegEncoderId;BitmapEncoder encoder=await BitmapEncoder.CreateAsync(codec,stream);encoder.SetPixelData(BitmapPixelFormat.Bgra8,BitmapAlphaMode.Ignore,(uint)width,(uint)height,96,96,pixels);await encoder.FlushAsync();token.ThrowIfCancellationRequested();stream.Seek(0);using DataReader reader=new(stream.GetInputStreamAt(0));await reader.LoadAsync((uint)stream.Size);byte[] encoded=new byte[checked((int)stream.Size)];reader.ReadBytes(encoded);return new(encoded,width,height,format);}
+
+    [StructLayout(LayoutKind.Sequential)]private struct RECT{public int Left,Top,Right,Bottom;}[StructLayout(LayoutKind.Sequential)]private struct POINT{public int X,Y;}[StructLayout(LayoutKind.Sequential)]private struct CURSORINFO{public uint cbSize,flags;public nint hCursor;public POINT ptScreenPos;}[StructLayout(LayoutKind.Sequential)]private struct MONITORINFO{public uint cbSize;public RECT rcMonitor,rcWork;public uint dwFlags;}[StructLayout(LayoutKind.Sequential)]private struct BITMAPINFOHEADER{public uint biSize;public int biWidth,biHeight;public ushort biPlanes,biBitCount;public uint biCompression,biSizeImage;public int biXPelsPerMeter,biYPelsPerMeter;public uint biClrUsed,biClrImportant;}[StructLayout(LayoutKind.Sequential)]private struct BITMAPINFO{public BITMAPINFOHEADER bmiHeader;public uint bmiColors;}
+    [DllImport("user32.dll")]private static extern nint GetForegroundWindow();[DllImport("user32.dll")]private static extern bool GetWindowRect(nint hWnd,out RECT rect);[DllImport("user32.dll")]private static extern nint GetDC(nint hWnd);[DllImport("user32.dll")]private static extern int ReleaseDC(nint hWnd,nint hDC);[DllImport("user32.dll")]private static extern nint MonitorFromWindow(nint hwnd,uint flags);[DllImport("user32.dll",CharSet=CharSet.Unicode)]private static extern bool GetMonitorInfo(nint monitor,ref MONITORINFO info);[DllImport("user32.dll")]private static extern bool GetCursorInfo(ref CURSORINFO info);[DllImport("user32.dll")]private static extern bool DrawIconEx(nint dc,int x,int y,nint icon,int cx,int cy,uint step,nint brush,uint flags);[DllImport("gdi32.dll")]private static extern nint CreateCompatibleDC(nint dc);[DllImport("gdi32.dll")]private static extern nint CreateCompatibleBitmap(nint dc,int width,int height);[DllImport("gdi32.dll")]private static extern nint SelectObject(nint dc,nint obj);[DllImport("gdi32.dll")]private static extern bool DeleteObject(nint obj);[DllImport("gdi32.dll")]private static extern bool DeleteDC(nint dc);[DllImport("gdi32.dll")]private static extern bool BitBlt(nint dest,int x,int y,int width,int height,nint source,int sx,int sy,uint rop);[DllImport("gdi32.dll")]private static extern int GetDIBits(nint dc,nint bitmap,uint start,uint lines,[Out]byte[] bits,ref BITMAPINFO info,uint usage);
+}
+
+public sealed class WindowsSnippingToolService : ISnippingToolService
+{
+    public async Task<bool> OpenAsync(bool recording,CancellationToken cancellationToken=default){cancellationToken.ThrowIfCancellationRequested();Uri uri=new(recording?"ms-screenclip://capture/video?user-agent=NexaStation":"ms-screenclip://capture/image?rectangle&enabledModes=All&user-agent=NexaStation");return await Launcher.LaunchUriAsync(uri);}
+}

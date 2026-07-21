@@ -1,0 +1,28 @@
+CREATE TABLE Themes
+(
+    Id TEXT PRIMARY KEY,
+    Name TEXT NOT NULL,
+    Description TEXT NULL,
+    ThemeType INTEGER NOT NULL,
+    AccentColor TEXT NOT NULL,
+    SecondaryAccentColor TEXT NULL,
+    BackgroundType INTEGER NOT NULL,
+    BackgroundPath TEXT NULL,
+    BackgroundStretch INTEGER NOT NULL DEFAULT 1,
+    BackgroundBlurAmount INTEGER NOT NULL DEFAULT 0,
+    BackgroundDarkeningOverlay REAL NOT NULL DEFAULT 0.35,
+    BackgroundOpacity REAL NOT NULL DEFAULT 1,
+    BackgroundManagedCopy INTEGER NOT NULL DEFAULT 0,
+    CardShape INTEGER NOT NULL,
+    SurfaceOpacity REAL NOT NULL,
+    BlurEnabled INTEGER NOT NULL DEFAULT 1,
+    AnimationIntensity INTEGER NOT NULL,
+    SoundPackId TEXT NULL,
+    BuiltIn INTEGER NOT NULL DEFAULT 0,
+    Enabled INTEGER NOT NULL DEFAULT 1,
+    Version TEXT NOT NULL DEFAULT '1.0',
+    AuthorDisplayName TEXT NOT NULL DEFAULT 'Local user',
+    MinimumNexaStationVersion TEXT NOT NULL DEFAULT '0.7',
+    CreatedAtUtc TEXT NOT NULL,
+    UpdatedAtUtc TEXT NOT NULL
+);

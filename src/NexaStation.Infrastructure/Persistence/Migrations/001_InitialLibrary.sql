@@ -1,0 +1,14 @@
+CREATE TABLE LibraryItems (Id TEXT PRIMARY KEY, Title TEXT NOT NULL, SortTitle TEXT NOT NULL, Subtitle TEXT NULL, Description TEXT NULL, ContentType INTEGER NOT NULL, Favorite INTEGER NOT NULL DEFAULT 0, Hidden INTEGER NOT NULL DEFAULT 0, AddedAtUtc TEXT NOT NULL, UpdatedAtUtc TEXT NOT NULL, LastLaunchedAtUtc TEXT NULL, TotalPlaytimeSeconds INTEGER NOT NULL DEFAULT 0, DefaultLaunchTargetId TEXT NULL, CoverAssetId TEXT NULL, BackgroundAssetId TEXT NULL);
+CREATE INDEX IX_LibraryItems_SortTitle ON LibraryItems(SortTitle);
+CREATE INDEX IX_LibraryItems_Favorite ON LibraryItems(Favorite);
+CREATE INDEX IX_LibraryItems_Hidden ON LibraryItems(Hidden);
+CREATE INDEX IX_LibraryItems_LastLaunched ON LibraryItems(LastLaunchedAtUtc);
+CREATE INDEX IX_LibraryItems_Added ON LibraryItems(AddedAtUtc);
+CREATE INDEX IX_LibraryItems_ContentType ON LibraryItems(ContentType);
+CREATE TABLE LaunchTargets (Id TEXT PRIMARY KEY, LibraryItemId TEXT NOT NULL, Name TEXT NOT NULL, LaunchType INTEGER NOT NULL, ExecutablePath TEXT NULL, ShortcutPath TEXT NULL, WorkingDirectory TEXT NULL, Arguments TEXT NULL, Uri TEXT NULL, ExpectedProcessName TEXT NULL, HideFrontendWhileRunning INTEGER NOT NULL DEFAULT 1, RestoreFrontendAfterExit INTEGER NOT NULL DEFAULT 1, CreatedAtUtc TEXT NOT NULL, UpdatedAtUtc TEXT NOT NULL, FOREIGN KEY (LibraryItemId) REFERENCES LibraryItems(Id) ON DELETE CASCADE);
+CREATE INDEX IX_LaunchTargets_Item ON LaunchTargets(LibraryItemId);
+CREATE INDEX IX_LaunchTargets_Executable ON LaunchTargets(ExecutablePath);
+CREATE INDEX IX_LaunchTargets_Shortcut ON LaunchTargets(ShortcutPath);
+CREATE INDEX IX_LaunchTargets_Uri ON LaunchTargets(Uri);
+CREATE TABLE Assets (Id TEXT PRIMARY KEY, LibraryItemId TEXT NOT NULL, AssetType INTEGER NOT NULL, LocalPath TEXT NOT NULL, Width INTEGER NULL, Height INTEGER NULL, FileSize INTEGER NULL, AddedAtUtc TEXT NOT NULL, FOREIGN KEY (LibraryItemId) REFERENCES LibraryItems(Id) ON DELETE CASCADE);
+CREATE INDEX IX_Assets_Item ON Assets(LibraryItemId);

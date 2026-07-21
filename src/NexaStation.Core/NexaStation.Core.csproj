@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>NexaStation.Core</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NexaStation.Compatibility\NexaStation.Compatibility.csproj" />
+    <ProjectReference Include="..\NexaStation.Domain\NexaStation.Domain.csproj" />
+  </ItemGroup>
+</Project>

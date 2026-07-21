@@ -1,0 +1,35 @@
+using System.Globalization;
+using Microsoft.Data.Sqlite;
+using NexaStation.Core;
+using NexaStation.Domain;
+using NexaStation.Infrastructure.Persistence;
+
+namespace NexaStation.Infrastructure.Metadata;
+
+public sealed class SqliteMetadataProvenanceStore(ISqliteConnectionFactory connections) : IMetadataProvenanceStore
+{
+    public async Task SaveExternalIdentityAsync(ExternalGameIdentity identity, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(identity); await using SqliteConnection connection=await connections.OpenAsync(cancellationToken).ConfigureAwait(false);await using SqliteCommand command=connection.CreateCommand();
+        command.CommandText="INSERT INTO GameExternalIdentities(Id,LibraryItemId,ProviderId,ExternalGameId,IdentityType,Confidence,ConfirmedByUser,CreatedAtUtc,UpdatedAtUtc) VALUES($id,$item,$provider,$game,$type,$confidence,$confirmed,$created,$updated) ON CONFLICT(ProviderId,ExternalGameId,LibraryItemId) DO UPDATE SET IdentityType=excluded.IdentityType,Confidence=MAX(GameExternalIdentities.Confidence,excluded.Confidence),ConfirmedByUser=MAX(GameExternalIdentities.ConfirmedByUser,excluded.ConfirmedByUser),UpdatedAtUtc=excluded.UpdatedAtUtc;";
+        Add(command,"$id",identity.Id);Add(command,"$item",identity.LibraryItemId);Add(command,"$provider",identity.ProviderId);Add(command,"$game",identity.ExternalGameId);Add(command,"$type",(int)identity.IdentityType);Add(command,"$confidence",(int)identity.Confidence);Add(command,"$confirmed",identity.ConfirmedByUser?1:0);Add(command,"$created",At(identity.CreatedAtUtc));Add(command,"$updated",At(identity.UpdatedAtUtc));await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+    public async Task<IReadOnlyList<ExternalGameIdentity>> GetExternalIdentitiesAsync(string libraryItemId,CancellationToken cancellationToken=default)
+    {
+        await using SqliteConnection connection=await connections.OpenAsync(cancellationToken).ConfigureAwait(false);await using SqliteCommand command=connection.CreateCommand();command.CommandText="SELECT Id,LibraryItemId,ProviderId,ExternalGameId,IdentityType,Confidence,ConfirmedByUser,CreatedAtUtc,UpdatedAtUtc FROM GameExternalIdentities WHERE LibraryItemId=$item ORDER BY ConfirmedByUser DESC,Confidence DESC;";Add(command,"$item",libraryItemId);List<ExternalGameIdentity> result=[];await using SqliteDataReader reader=await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);while(await reader.ReadAsync(cancellationToken).ConfigureAwait(false))result.Add(new(reader.GetString(0),reader.GetString(1),reader.GetString(2),reader.GetString(3),(ExternalIdentityType)reader.GetInt32(4),(IdentityConfidence)reader.GetInt32(5),reader.GetInt32(6)!=0,DateTimeOffset.Parse(reader.GetString(7),CultureInfo.InvariantCulture),DateTimeOffset.Parse(reader.GetString(8),CultureInfo.InvariantCulture)));return result;
+    }
+    public async Task RecordFieldOriginAsync(MetadataFieldOrigin origin,CancellationToken cancellationToken=default)
+    {
+        ArgumentNullException.ThrowIfNull(origin);await using SqliteConnection connection=await connections.OpenAsync(cancellationToken).ConfigureAwait(false);await using SqliteCommand command=connection.CreateCommand();command.CommandText="INSERT INTO MetadataFieldProvenance(LibraryItemId,FieldName,SourceType,SourceProviderId,SourceRecordId,AppliedAtUtc,Confidence,UserModifiedAfterApply,Locked) VALUES($item,$field,$source,$provider,$record,$applied,$confidence,$modified,$locked) ON CONFLICT(LibraryItemId,FieldName) DO UPDATE SET SourceType=CASE WHEN MetadataFieldProvenance.UserModifiedAfterApply=1 OR MetadataFieldProvenance.Locked=1 THEN MetadataFieldProvenance.SourceType ELSE excluded.SourceType END,SourceProviderId=CASE WHEN MetadataFieldProvenance.UserModifiedAfterApply=1 OR MetadataFieldProvenance.Locked=1 THEN MetadataFieldProvenance.SourceProviderId ELSE excluded.SourceProviderId END,SourceRecordId=CASE WHEN MetadataFieldProvenance.UserModifiedAfterApply=1 OR MetadataFieldProvenance.Locked=1 THEN MetadataFieldProvenance.SourceRecordId ELSE excluded.SourceRecordId END,AppliedAtUtc=CASE WHEN MetadataFieldProvenance.UserModifiedAfterApply=1 OR MetadataFieldProvenance.Locked=1 THEN MetadataFieldProvenance.AppliedAtUtc ELSE excluded.AppliedAtUtc END,Confidence=CASE WHEN MetadataFieldProvenance.UserModifiedAfterApply=1 OR MetadataFieldProvenance.Locked=1 THEN MetadataFieldProvenance.Confidence ELSE excluded.Confidence END;";Add(command,"$item",origin.LibraryItemId);Add(command,"$field",origin.FieldName);Add(command,"$source",(int)origin.SourceType);Add(command,"$provider",origin.SourceProviderId);Add(command,"$record",origin.SourceRecordId);Add(command,"$applied",At(origin.AppliedAtUtc));Add(command,"$confidence",origin.Confidence);Add(command,"$modified",origin.UserModifiedAfterApply?1:0);Add(command,"$locked",origin.Locked?1:0);await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+    public async Task MarkUserModifiedAsync(string libraryItemId,string fieldName,CancellationToken cancellationToken=default)
+    {
+        await using SqliteConnection connection=await connections.OpenAsync(cancellationToken).ConfigureAwait(false);await using SqliteCommand command=connection.CreateCommand();command.CommandText="INSERT INTO MetadataFieldProvenance(LibraryItemId,FieldName,SourceType,AppliedAtUtc,Confidence,UserModifiedAfterApply,Locked) VALUES($item,$field,$user,$now,1000,1,0) ON CONFLICT(LibraryItemId,FieldName) DO UPDATE SET SourceType=$user,UserModifiedAfterApply=1; INSERT INTO MetadataOverrides(LibraryItemId,FieldName,UpdatedAtUtc) VALUES($item,$field,$now) ON CONFLICT(LibraryItemId,FieldName) DO UPDATE SET UpdatedAtUtc=$now;";Add(command,"$item",libraryItemId);Add(command,"$field",fieldName);Add(command,"$user",(int)MetadataSourceType.User);Add(command,"$now",At(DateTimeOffset.UtcNow));await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+    public async Task<bool> CanAutomaticallyOverwriteAsync(string libraryItemId,string fieldName,CancellationToken cancellationToken=default)
+    {
+        await using SqliteConnection connection=await connections.OpenAsync(cancellationToken).ConfigureAwait(false);await using SqliteCommand command=connection.CreateCommand();command.CommandText="SELECT CASE WHEN EXISTS(SELECT 1 FROM MetadataOverrides WHERE LibraryItemId=$item AND FieldName=$field) OR EXISTS(SELECT 1 FROM MetadataFieldProvenance WHERE LibraryItemId=$item AND FieldName=$field AND (UserModifiedAfterApply=1 OR Locked=1)) THEN 0 ELSE 1 END;";Add(command,"$item",libraryItemId);Add(command,"$field",fieldName);return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false),CultureInfo.InvariantCulture)!=0;
+    }
+    private static string At(DateTimeOffset value)=>value.ToUniversalTime().ToString("O",CultureInfo.InvariantCulture);
+    private static void Add(SqliteCommand command,string name,object? value)=>command.Parameters.AddWithValue(name,value??DBNull.Value);
+}

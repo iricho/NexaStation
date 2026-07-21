@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl x:Class="NexaStation.App.Controls.NexaDiscoverAppCard" x:Name="RootControl" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" DataContext="{x:Bind Card, Mode=OneWay}">
+  <Border MinWidth="330" Height="220" Margin="0,0,14,14" Padding="18" CornerRadius="18" Background="{StaticResource NexaSurfaceBrush}" BorderBrush="{StaticResource NexaAccentBorderBrush}" BorderThickness="1" AutomationProperties.Name="{Binding DisplayName}">
+    <Grid><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="86" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><Border Width="72" Height="72" CornerRadius="18" Background="{Binding TileBrush}"><Grid><TextBlock Text="{Binding Initial}" FontSize="30" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" /><Image Source="{Binding Icon}" Stretch="Uniform" Margin="9" /></Grid></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding DisplayName}" FontSize="20" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" /><TextBlock Text="{Binding Category}" Foreground="{StaticResource NexaMutedTextBrush}" /><TextBlock Text="{Binding StateBadge}" Foreground="{StaticResource NexaAccentBrush}" FontSize="12" /></StackPanel></Grid>
+      <TextBlock Grid.Row="1" Text="{Binding Description}" TextWrapping="Wrap" MaxLines="3" Margin="0,12,0,8" Foreground="{StaticResource NexaMutedTextBrush}" />
+      <TextBlock Grid.Row="2" Text="{Binding PrimaryAction}" FontWeight="SemiBold" Foreground="{StaticResource NexaAccentBrush}" />
+    </Grid>
+  </Border>
+</UserControl>

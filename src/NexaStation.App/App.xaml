@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Application
+    x:Class="NexaStation.App.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+        <ResourceDictionary Source="Styles/NexaColors.xaml" />
+        <ResourceDictionary Source="Styles/NexaSpacing.xaml" />
+        <ResourceDictionary Source="Styles/NexaTypography.xaml" />
+        <ResourceDictionary Source="Styles/NexaFocus.xaml" />
+        <ResourceDictionary Source="Styles/NexaCards.xaml" />
+        <ResourceDictionary Source="Styles/NexaNavigation.xaml" />
+        <ResourceDictionary Source="Styles/NexaButtons.xaml" />
+        <ResourceDictionary Source="Styles/NexaDashboard.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+</Application>

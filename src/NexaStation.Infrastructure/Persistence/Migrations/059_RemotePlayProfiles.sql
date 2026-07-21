@@ -1,0 +1,8 @@
+CREATE TABLE RemotePlayProfiles(
+ Id TEXT PRIMARY KEY, Name TEXT NOT NULL, ApplicationLibraryItemId TEXT NOT NULL, LaunchTargetId TEXT NULL,
+ ServiceType INTEGER NOT NULL DEFAULT 4, TargetLabel TEXT NULL, HostHint TEXT NULL, ArgumentsTemplate TEXT NULL,
+ PreferredDisplayId TEXT NULL, HideFrontend INTEGER NOT NULL DEFAULT 1, RestoreFrontend INTEGER NOT NULL DEFAULT 1,
+ TrackingMode INTEGER NOT NULL, DesktopControlProfileId TEXT NULL, ShowOnHome INTEGER NOT NULL DEFAULT 0,
+ ShowInMedia INTEGER NOT NULL DEFAULT 1, Enabled INTEGER NOT NULL DEFAULT 1, UserManaged INTEGER NOT NULL DEFAULT 1,
+ CreatedAtUtc TEXT NOT NULL, UpdatedAtUtc TEXT NOT NULL,
+ FOREIGN KEY(ApplicationLibraryItemId) REFERENCES LibraryItems(Id) ON DELETE CASCADE);

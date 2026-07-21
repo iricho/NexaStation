@@ -1,0 +1,5 @@
+"libraryfolders"
+{
+  "0" { "path" "PRIMARY_PATH" "label" "" }
+  "1" { "path" "SECONDARY_PATH" "apps" { "4242" "1" } }
+}
