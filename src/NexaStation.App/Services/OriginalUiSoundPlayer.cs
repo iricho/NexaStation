@@ -1,14 +1,14 @@
 using System.Text;
 using NexaStation.Customization.Services;
+using NexaStation.Recovery;
 using NexaStation.SystemIntegration.Services;
 using Windows.Media.Core;
 using Windows.Media.Playback;
-using Windows.Storage;
 
 namespace NexaStation.App.Services;
 
 /// <summary>Materializes and plays the project's original short PCM cues locally.</summary>
-public sealed class OriginalUiSoundPlayer(ICurrentActivityService activity) : IUiSoundPlayer,IDisposable
+public sealed class OriginalUiSoundPlayer(ICurrentActivityService activity, INexaStationPaths paths) : IUiSoundPlayer,IDisposable
 {
     private readonly Windows.Media.Playback.MediaPlayer _player=new();
     private readonly SemaphoreSlim _gate=new(1,1);
@@ -17,7 +17,7 @@ public sealed class OriginalUiSoundPlayer(ICurrentActivityService activity) : IU
     {
         if(activity.Current.Duration is not null)return;
         if(Path.IsPathRooted(assetKey)||assetKey.Contains("..",StringComparison.Ordinal))throw new InvalidOperationException("UI sound asset keys must remain inside the managed sound library.");
-        string pack=Path.GetFileName(Path.GetDirectoryName(assetKey))??"Default";string cue=Path.GetFileNameWithoutExtension(assetKey);string directory=Path.Combine(ApplicationData.Current.LocalFolder.Path,"NexaStation","UiSounds",pack);string path=Path.Combine(directory,$"{cue}.wav");
+        string pack=Path.GetFileName(Path.GetDirectoryName(assetKey))??"Default";string cue=Path.GetFileNameWithoutExtension(assetKey);string directory=Path.Combine(paths.UiSoundCache,pack);string path=Path.Combine(directory,$"{cue}.wav");
         await _gate.WaitAsync(cancellationToken);try{if(!File.Exists(path)){Directory.CreateDirectory(directory);await WriteOriginalCueAsync(path,pack,cue,cancellationToken);} _player.Volume=Math.Clamp(volume,0,1);_player.Source=MediaSource.CreateFromUri(new Uri(path));_player.Play();}finally{_gate.Release();}
     }
 

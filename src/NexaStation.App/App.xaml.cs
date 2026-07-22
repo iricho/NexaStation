@@ -82,6 +82,7 @@ public sealed partial class App : Application, IDisposable
     private MainWindow? _window;
     private OnboardingWindow? _onboardingWindow;
     private RecoveryWindow? _recoveryWindow;
+    private Window? _storageFailureWindow;
     private IAppLogger? _logger;
     private AppInstanceCoordinator? _singleInstance;
     private IStartupHealthService? _startupHealth;
@@ -100,7 +101,15 @@ public sealed partial class App : Application, IDisposable
     {
         Stopwatch startupTimer = Stopwatch.StartNew();
         NexaStationPaths paths = new();
-        paths.EnsureCreated();
+        try
+        {
+            paths.EnsureCreated();
+        }
+        catch (IOException exception)
+        {
+            ShowStorageFailure(paths, exception);
+            return;
+        }
         string bootstrapLog = Path.Combine(paths.State, "bootstrap.log");
         WriteBootstrap(bootstrapLog, "Launch callback entered.");
         AppActivationArguments activationArguments = AppInstance.GetCurrent().GetActivatedEventArgs();
@@ -704,6 +713,41 @@ public sealed partial class App : Application, IDisposable
         {
             Debug.WriteLine($"NexaStation bootstrap logging failed: {exception.Message}");
         }
+    }
+
+    private void ShowStorageFailure(NexaStationPaths paths, Exception exception)
+    {
+        Microsoft.UI.Xaml.Controls.StackPanel panel = new()
+        {
+            Padding = new Thickness(32),
+            Spacing = 14,
+        };
+        panel.Children.Add(new Microsoft.UI.Xaml.Controls.TextBlock
+        {
+            Text = "NexaStation cannot open its data folder",
+            FontSize = 28,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            TextWrapping = TextWrapping.Wrap,
+        });
+        panel.Children.Add(new Microsoft.UI.Xaml.Controls.TextBlock
+        {
+            Text = exception.Message,
+            TextWrapping = TextWrapping.Wrap,
+        });
+        panel.Children.Add(new Microsoft.UI.Xaml.Controls.TextBlock
+        {
+            Text = $"Data folder: {paths.Root}",
+            IsTextSelectionEnabled = true,
+            Opacity = .72,
+            TextWrapping = TextWrapping.Wrap,
+        });
+
+        _storageFailureWindow = new Window
+        {
+            Title = "NexaStation storage error",
+            Content = panel,
+        };
+        _storageFailureWindow.Activate();
     }
 
     private static void ValidateCriticalServices(IServiceProvider services, string bootstrapLog)

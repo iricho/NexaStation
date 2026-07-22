@@ -13,11 +13,23 @@
     <EnableMsixTooling>true</EnableMsixTooling>
     <AppxPackageSigningEnabled Condition="'$(PackageCertificateThumbprint)' == ''">false</AppxPackageSigningEnabled>
     <AppxPackageSigningEnabled Condition="'$(PackageCertificateThumbprint)' != ''">true</AppxPackageSigningEnabled>
-    <AppxPackageDir>C:\Users\ghala\Documents\NexaStation\outputtest\</AppxPackageDir>
     <AppxBundle>Never</AppxBundle>
     <GenerateAppInstallerFile>false</GenerateAppInstallerFile>
     <ApplicationIcon />
     <WindowsAppSDKSelfContained Condition="'$(PublishSelfContainedApp)' == 'true'">true</WindowsAppSDKSelfContained>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(NexaStationReleasePackaging)' == 'true'">
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained>true</SelfContained>
+    <PublishTrimmed>false</PublishTrimmed>
+    <PublishSingleFile>false</PublishSingleFile>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PlatformTarget>x64</PlatformTarget>
+    <PublishProfile />
+    <EnableMsixTooling>false</EnableMsixTooling>
+    <GenerateAppxPackageOnBuild>false</GenerateAppxPackageOnBuild>
+    <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
@@ -74,10 +86,10 @@
     <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">false</PublishReadyToRun>
     <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">true</PublishReadyToRun>
     <PublishTrimmed>false</PublishTrimmed>
-    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
-    <PackageCertificateKeyFile>NexaStation.App_TemporaryKey.pfx</PackageCertificateKeyFile>
-    <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
-    <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
+    <AppxPackageSigningEnabled Condition="'$(NexaStationReleasePackaging)' != 'true'">True</AppxPackageSigningEnabled>
+    <PackageCertificateKeyFile Condition="'$(NexaStationReleasePackaging)' != 'true'">NexaStation.App_TemporaryKey.pfx</PackageCertificateKeyFile>
+    <AppxPackageSigningTimestampDigestAlgorithm Condition="'$(NexaStationReleasePackaging)' != 'true'">SHA256</AppxPackageSigningTimestampDigestAlgorithm>
+    <AppxAutoIncrementPackageRevision Condition="'$(NexaStationReleasePackaging)' != 'true'">True</AppxAutoIncrementPackageRevision>
     <GenerateTestArtifacts>False</GenerateTestArtifacts>
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
   </PropertyGroup>
@@ -86,5 +98,15 @@
     <Error Condition="!Exists('Assets\InputGlyphs\PlayStation\ps-circle.png')" Text="Required PlayStation Circle glyph asset is missing." />
     <Error Condition="!Exists('Assets\InputGlyphs\PlayStation\ps-square.png')" Text="Required PlayStation Square glyph asset is missing." />
     <Error Condition="!Exists('Assets\InputGlyphs\PlayStation\ps-triangle.png')" Text="Required PlayStation Triangle glyph asset is missing." />
+  </Target>
+  <Target Name="CopyGeneratedWinUiResourcesToReleasePublish" AfterTargets="Publish" Condition="'$(NexaStationReleasePackaging)' == 'true'">
+    <ItemGroup>
+      <_GeneratedWinUiPublishResource Include="$(TargetDir)**\*.xbf" />
+      <_GeneratedWinUiPublishResource Include="$(TargetDir)$(AssemblyName).pri" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(_GeneratedWinUiPublishResource)"
+      DestinationFiles="@(_GeneratedWinUiPublishResource->'$(PublishDir)%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true" />
   </Target>
 </Project>
