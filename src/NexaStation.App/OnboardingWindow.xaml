@@ -4,63 +4,106 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:NexaStation.App.Controls">
-  <Grid Background="{StaticResource NexaBackgroundBrush}" Padding="64">
-    <Grid.RowDefinitions>
-      <RowDefinition Height="Auto" />
-      <RowDefinition Height="*" />
-      <RowDefinition Height="Auto" />
-    </Grid.RowDefinitions>
+  <Grid Background="{StaticResource NexaBackgroundBrush}" Padding="48">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
 
-    <Grid MaxWidth="1120" HorizontalAlignment="Stretch">
-      <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-      <StackPanel Spacing="6">
-        <TextBlock Text="NEXASTATION SETUP" Foreground="{StaticResource NexaAccentBrush}" FontWeight="SemiBold" CharacterSpacing="120" />
-        <TextBlock x:Name="ProgressText" Foreground="{StaticResource NexaMutedTextBrush}" />
+    <Grid MaxWidth="1240" HorizontalAlignment="Stretch">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="7">
+        <TextBlock Text="NEXASTATION SETUP" Foreground="{StaticResource NexaAccentBrush}" FontWeight="SemiBold" CharacterSpacing="120"/>
+        <TextBlock x:Name="ProgressText" Foreground="{StaticResource NexaMutedTextBrush}" AutomationProperties.LiveSetting="Polite"/>
       </StackPanel>
-      <Button Grid.Column="1" Content="Exit setup" Click="ExitClicked" />
+      <Button Grid.Column="1" Content="Exit NexaStation" Click="ExitClicked" AutomationProperties.Name="Exit NexaStation and resume setup next launch"/>
     </Grid>
 
-    <Grid Grid.Row="1" MaxWidth="1120" HorizontalAlignment="Stretch" VerticalAlignment="Center">
-      <Grid.ColumnDefinitions><ColumnDefinition Width="1.2*" /><ColumnDefinition Width="0.8*" /></Grid.ColumnDefinitions>
-      <StackPanel Margin="0,0,64,0" Spacing="18">
-        <ProgressBar x:Name="ProgressBar" Minimum="1" Maximum="10" Height="6" Foreground="{StaticResource NexaAccentBrush}" />
-        <TextBlock x:Name="StepTitle" FontSize="42" FontWeight="SemiBold" Foreground="{StaticResource NexaSoftWhiteBrush}" TextWrapping="Wrap" />
-        <TextBlock x:Name="StepDescription" FontSize="19" LineHeight="29" Foreground="{StaticResource NexaMutedTextBrush}" TextWrapping="Wrap" MaxWidth="680" HorizontalAlignment="Left" />
-        <TextBlock x:Name="RecoveryNotice" Foreground="{StaticResource NexaWarningBrush}" TextWrapping="Wrap" Visibility="Collapsed" />
+    <Grid Grid.Row="1" MaxWidth="1240" HorizontalAlignment="Stretch" Margin="0,24">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="0.82*"/><ColumnDefinition Width="1.18*"/></Grid.ColumnDefinitions>
+      <StackPanel Margin="0,0,50,0" Spacing="18" VerticalAlignment="Center">
+        <ProgressBar x:Name="ProgressBar" Minimum="1" Maximum="5" Height="6" Foreground="{StaticResource NexaAccentBrush}"/>
+        <TextBlock x:Name="StepEyebrow" Foreground="{StaticResource NexaAccentBrush}" FontWeight="SemiBold"/>
+        <TextBlock x:Name="StepTitle" FontSize="42" FontWeight="SemiBold" Foreground="{StaticResource NexaSoftWhiteBrush}" TextWrapping="Wrap"/>
+        <TextBlock x:Name="StepDescription" FontSize="18" LineHeight="28" Foreground="{StaticResource NexaMutedTextBrush}" TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left"/>
+        <TextBlock x:Name="RecoveryNotice" Foreground="{StaticResource NexaWarningBrush}" TextWrapping="Wrap" Visibility="Collapsed" AutomationProperties.LiveSetting="Assertive"/>
       </StackPanel>
 
-      <Border Grid.Column="1" Background="{StaticResource NexaPanelBrush}" BorderBrush="{StaticResource NexaCardBorderBrush}" BorderThickness="1" CornerRadius="16" Padding="28">
-        <StackPanel Spacing="18">
-          <TextBlock Text="Your choices" FontSize="22" FontWeight="SemiBold" />
-          <ComboBox x:Name="LayoutChoice" Header="Dashboard layout" SelectedIndex="0">
-            <ComboBoxItem Content="Modern Dashboard" Tag="Modern" /><ComboBoxItem Content="Classic Dashboard" Tag="Classic" /><ComboBoxItem Content="Compact Grid" Tag="Compact" />
-          </ComboBox>
-          <ComboBox x:Name="PerformanceChoice" Header="Performance profile" SelectedIndex="0">
-            <ComboBoxItem Content="Balanced (recommended)" Tag="Balanced" /><ComboBoxItem Content="High quality" Tag="Quality" /><ComboBoxItem Content="Low resource" Tag="Efficient" />
-          </ComboBox>
-          <CheckBox x:Name="ControllerChoice" Content="Enable controller navigation" IsChecked="True" />
-          <CheckBox x:Name="SteamChoice" Content="Guide me through Steam import" />
-          <CheckBox x:Name="EmulationChoice" Content="Guide me through emulator setup" />
-          <CheckBox x:Name="WindowsAppsChoice" Content="Scan installed Windows applications" IsChecked="True" />
-          <CheckBox x:Name="GalleryChoice" Content="Include my Pictures folder in Gallery" IsChecked="True" />
-          <CheckBox x:Name="PicturesPrivateChoice" Content="Keep this source private" />
-          <CheckBox x:Name="PicturesHomeChoice" Content="Show recent photos on Home" IsChecked="True" />
-          <CheckBox x:Name="PicturesSubfoldersChoice" Content="Include subfolders" IsChecked="True" />
-          <CheckBox x:Name="StartupChoice" Content="Start NexaStation after Windows sign-in" />
-          <CheckBox x:Name="DiagnosticsChoice" Content="Include local logs when I explicitly export diagnostics" />
-          <TextBlock x:Name="ReviewSummary" Foreground="{StaticResource NexaMutedTextBrush}" TextWrapping="Wrap" Visibility="Collapsed" />
-        </StackPanel>
+      <Border Grid.Column="1" Background="{StaticResource NexaPanelBrush}" BorderBrush="{StaticResource NexaCardBorderBrush}" BorderThickness="1" CornerRadius="18" Padding="28">
+        <ScrollViewer MaxHeight="670" VerticalScrollBarVisibility="Auto">
+          <Grid>
+            <StackPanel x:Name="WelcomePanel" Spacing="18">
+              <TextBlock Text="Everything stays local" FontSize="25" FontWeight="SemiBold"/>
+              <TextBlock Text="NexaStation reads only the providers and folders you approve. It does not upload your library, credentials, ROMs, applications, photos, or videos." TextWrapping="Wrap" Foreground="{StaticResource NexaMutedTextBrush}"/>
+              <Border Background="#12000000" CornerRadius="12" Padding="18"><TextBlock Text="You will make a clear Set up or Not now choice for every source. Nothing is silently enabled." TextWrapping="Wrap"/></Border>
+            </StackPanel>
+
+            <StackPanel x:Name="ProfilePanel" Spacing="16" Visibility="Collapsed">
+              <TextBlock Text="Choose how NexaStation feels" FontSize="24" FontWeight="SemiBold"/>
+              <Grid ColumnSpacing="12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Button x:Name="RecommendedButton" Content="Use recommended appearance" Click="RecommendedAppearanceClicked" HorizontalAlignment="Stretch" AutomationProperties.Name="Use recommended appearance"/>
+                <Button x:Name="CustomizeButton" Grid.Column="1" Content="Customize appearance" Click="CustomizeAppearanceClicked" HorizontalAlignment="Stretch" AutomationProperties.Name="Customize appearance"/>
+              </Grid>
+              <Button x:Name="KeepAppearanceButton" Content="Keep current appearance" Click="KeepAppearanceClicked" Visibility="Collapsed" HorizontalAlignment="Stretch"/>
+              <TextBox x:Name="OwnerNameBox" Header="Local owner name" TextChanged="PreferenceChanged" MaxLength="40"/>
+              <ComboBox x:Name="AvatarChoice" Header="Avatar color" SelectionChanged="PreferenceChanged">
+                <ComboBoxItem Content="Nexa Blue" Tag="owner"/><ComboBoxItem Content="Aurora Teal" Tag="aurora"/><ComboBoxItem Content="Violet" Tag="violet"/><ComboBoxItem Content="Ember" Tag="ember"/>
+              </ComboBox>
+              <StackPanel x:Name="CustomAppearancePanel" Spacing="14" Visibility="Collapsed">
+                <ComboBox x:Name="LayoutChoice" Header="Dashboard layout" SelectionChanged="PreferenceChanged">
+                  <ComboBoxItem Content="Modern Dashboard" Tag="Modern"/><ComboBoxItem Content="Classic Crossbar" Tag="Classic"/><ComboBoxItem Content="Compact Grid" Tag="Compact"/>
+                </ComboBox>
+                <ComboBox x:Name="ThemeChoice" Header="Theme" SelectionChanged="PreferenceChanged">
+                  <ComboBoxItem Content="Nexa Dark" Tag="nexa-dark"/><ComboBoxItem Content="Obsidian" Tag="obsidian"/><ComboBoxItem Content="Aurora" Tag="aurora"/><ComboBoxItem Content="Light Room" Tag="light-room"/><ComboBoxItem Content="High Contrast" Tag="high-contrast"/>
+                </ComboBox>
+                <ComboBox x:Name="PerformanceChoice" Header="Visual performance" SelectionChanged="PreferenceChanged">
+                  <ComboBoxItem Content="Balanced" Tag="Balanced"/><ComboBoxItem Content="High quality" Tag="Quality"/><ComboBoxItem Content="Low resource" Tag="Efficient"/>
+                </ComboBox>
+              </StackPanel>
+            </StackPanel>
+
+            <StackPanel x:Name="SourcesPanel" Spacing="14" Visibility="Collapsed">
+              <TextBlock Text="Choose every source" FontSize="24" FontWeight="SemiBold"/>
+              <TextBlock Text="Continue stays locked until each source is set up or explicitly skipped." Foreground="{StaticResource NexaMutedTextBrush}" TextWrapping="Wrap"/>
+              <Border Background="#12000000" CornerRadius="12" Padding="16"><StackPanel Spacing="8"><TextBlock Text="Steam" FontSize="19" FontWeight="SemiBold"/><TextBlock x:Name="SteamStatus" Text="No choice yet" TextWrapping="Wrap"/><StackPanel Orientation="Horizontal" Spacing="8"><Button Content="Set up" Tag="steam:in" Click="SourceDecisionClicked"/><Button Content="Not now" Tag="steam:out" Click="SourceDecisionClicked"/><Button x:Name="KeepSteam" Content="Keep existing" Tag="steam:keep" Click="SourceDecisionClicked" Visibility="Collapsed"/></StackPanel></StackPanel></Border>
+              <Border Background="#12000000" CornerRadius="12" Padding="16"><StackPanel Spacing="8"><TextBlock Text="Other game launchers" FontSize="19" FontWeight="SemiBold"/><TextBlock x:Name="LaunchersStatus" Text="No choice yet" TextWrapping="Wrap"/><StackPanel Orientation="Horizontal" Spacing="8"><Button Content="Set up" Tag="launchers:in" Click="SourceDecisionClicked"/><Button Content="Not now" Tag="launchers:out" Click="SourceDecisionClicked"/><Button x:Name="KeepLaunchers" Content="Keep existing" Tag="launchers:keep" Click="SourceDecisionClicked" Visibility="Collapsed"/></StackPanel></StackPanel></Border>
+              <Border Background="#12000000" CornerRadius="12" Padding="16"><StackPanel Spacing="8"><TextBlock Text="Windows applications" FontSize="19" FontWeight="SemiBold"/><TextBlock x:Name="WindowsStatus" Text="No choice yet" TextWrapping="Wrap"/><StackPanel Orientation="Horizontal" Spacing="8"><Button Content="Set up" Tag="windows:in" Click="SourceDecisionClicked"/><Button Content="Not now" Tag="windows:out" Click="SourceDecisionClicked"/><Button x:Name="KeepWindows" Content="Keep existing" Tag="windows:keep" Click="SourceDecisionClicked" Visibility="Collapsed"/></StackPanel></StackPanel></Border>
+              <Border Background="#12000000" CornerRadius="12" Padding="16"><StackPanel Spacing="8"><TextBlock Text="Emulation" FontSize="19" FontWeight="SemiBold"/><TextBlock x:Name="EmulationStatus" Text="No choice yet" TextWrapping="Wrap"/><StackPanel Orientation="Horizontal" Spacing="8"><Button Content="Set up" Tag="emulation:in" Click="SourceDecisionClicked"/><Button Content="Not now" Tag="emulation:out" Click="SourceDecisionClicked"/><Button x:Name="KeepEmulation" Content="Keep existing" Tag="emulation:keep" Click="SourceDecisionClicked" Visibility="Collapsed"/></StackPanel></StackPanel></Border>
+              <AutoSuggestBox x:Name="SourceSearch" PlaceholderText="Search the latest scan preview" TextChanged="SourceSearchChanged" AutomationProperties.Name="Search onboarding import preview"/>
+              <ItemsControl x:Name="SourcePreviewList"/>
+            </StackPanel>
+
+            <StackPanel x:Name="GalleryPanel" Spacing="14" Visibility="Collapsed">
+              <TextBlock Text="Choose local and system options" FontSize="24" FontWeight="SemiBold"/>
+              <TextBlock Text="Each row needs an explicit choice. Opting out is always safe and can be changed later." Foreground="{StaticResource NexaMutedTextBrush}" TextWrapping="Wrap"/>
+              <StackPanel Spacing="8"><TextBlock Text="Gallery" FontWeight="SemiBold"/><StackPanel Orientation="Horizontal" Spacing="8"><Button Content="Enable" Tag="gallery:in" Click="SystemDecisionClicked"/><Button Content="Not now" Tag="gallery:out" Click="SystemDecisionClicked"/><Button x:Name="KeepGallery" Content="Keep existing" Tag="gallery:keep" Click="SystemDecisionClicked" Visibility="Collapsed"/></StackPanel></StackPanel>
+              <StackPanel x:Name="PicturesDecisionPanel" Spacing="8"><TextBlock Text="Windows Pictures folder" FontWeight="SemiBold"/><StackPanel Orientation="Horizontal" Spacing="8"><Button Content="Include" Tag="pictures:in" Click="SystemDecisionClicked"/><Button Content="Do not include" Tag="pictures:out" Click="SystemDecisionClicked"/></StackPanel></StackPanel>
+              <StackPanel x:Name="GalleryOptionsPanel" Spacing="8" Visibility="Collapsed"><CheckBox x:Name="PicturesPrivateChoice" Content="Keep Pictures private" Click="PreferenceChanged"/><CheckBox x:Name="PicturesHomeChoice" Content="Show recent Pictures on Home" Click="PreferenceChanged"/><CheckBox x:Name="PicturesSubfoldersChoice" Content="Include subfolders" Click="PreferenceChanged"/></StackPanel>
+              <StackPanel Spacing="8"><TextBlock Text="Launch at Windows sign-in" FontWeight="SemiBold"/><StackPanel Orientation="Horizontal" Spacing="8"><Button Content="Enable" Tag="startup:in" Click="SystemDecisionClicked"/><Button Content="Not now" Tag="startup:out" Click="SystemDecisionClicked"/><Button x:Name="KeepStartup" Content="Keep existing" Tag="startup:keep" Click="SystemDecisionClicked" Visibility="Collapsed"/></StackPanel></StackPanel>
+              <StackPanel Spacing="8"><TextBlock Text="Include redacted logs in diagnostics I explicitly export" FontWeight="SemiBold" TextWrapping="Wrap"/><StackPanel Orientation="Horizontal" Spacing="8"><Button Content="Include logs" Tag="diagnostics:in" Click="SystemDecisionClicked"/><Button Content="Do not include" Tag="diagnostics:out" Click="SystemDecisionClicked"/><Button x:Name="KeepDiagnostics" Content="Keep existing" Tag="diagnostics:keep" Click="SystemDecisionClicked" Visibility="Collapsed"/></StackPanel></StackPanel>
+              <TextBlock x:Name="SystemDecisionSummary" Foreground="{StaticResource NexaAccentBrush}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+            </StackPanel>
+
+            <StackPanel x:Name="ReviewPanel" Spacing="16" Visibility="Collapsed">
+              <TextBlock Text="Review before anything changes" FontSize="24" FontWeight="SemiBold"/>
+              <TextBlock x:Name="ReviewSummary" Foreground="{StaticResource NexaMutedTextBrush}" TextWrapping="Wrap"/>
+              <CheckBox x:Name="ApplyConfirmation" Content="Apply these choices to this PC" Click="ApplyConfirmationChanged"/>
+              <StackPanel Orientation="Horizontal" Spacing="12"><ProgressRing x:Name="ApplyProgress" IsActive="False" Width="28" Height="28"/><TextBlock x:Name="ApplyStatus" VerticalAlignment="Center" TextWrapping="Wrap" AutomationProperties.LiveSetting="Assertive"/></StackPanel>
+              <Button x:Name="CancelApplyButton" Content="Cancel setup tasks" Click="CancelApplyClicked" Visibility="Collapsed" HorizontalAlignment="Left"/>
+              <CheckBox x:Name="AcceptFailures" Content="Continue to Home with the remaining setup issues" Visibility="Collapsed" Click="ApplyConfirmationChanged"/>
+              <ItemsControl x:Name="TaskResultsList"/>
+            </StackPanel>
+          </Grid>
+        </ScrollViewer>
       </Border>
     </Grid>
 
-    <StackPanel Grid.Row="2" Spacing="12">
-    <Grid MaxWidth="1120" HorizontalAlignment="Stretch">
-      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-      <Button x:Name="BackButton" Content="Back" Click="BackClicked" MinWidth="130" />
-      <Button Grid.Column="1" Content="Skip setup" Click="SkipClicked" HorizontalAlignment="Right" Margin="0,0,16,0" />
-      <Button x:Name="NextButton" Grid.Column="2" Content="Continue" Click="NextClicked" MinWidth="180" Style="{StaticResource AccentButtonStyle}" />
-    </Grid>
-    <controls:NexaInputHintBar x:Name="InputHints" />
+    <StackPanel Grid.Row="2" Spacing="10">
+      <TextBlock x:Name="ValidationMessage" MaxWidth="1240" Foreground="{StaticResource NexaWarningBrush}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+      <Grid MaxWidth="1240" HorizontalAlignment="Stretch">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <Button x:Name="BackButton" Content="Back" Click="BackClicked" MinWidth="130"/>
+        <Button x:Name="SkipButton" Grid.Column="1" Content="Skip setup" Click="SkipClicked" HorizontalAlignment="Right" Margin="0,0,16,0"/>
+        <Button x:Name="NextButton" Grid.Column="2" Content="Start setup" Click="NextClicked" MinWidth="190" Style="{StaticResource AccentButtonStyle}"/>
+      </Grid>
+      <controls:NexaInputHintBar x:Name="InputHints" MaxWidth="1240"/>
     </StackPanel>
   </Grid>
 </Window>

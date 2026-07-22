@@ -1,3 +1,5 @@
+using NexaStation.Domain;
+
 namespace NexaStation.Core;
 
 public sealed class DefaultItemActionProvider : IItemActionProvider
@@ -28,7 +30,29 @@ public sealed class DefaultItemActionProvider : IItemActionProvider
         }
 
         if (library && !request.IsGuest) Add("pin.home", "Pin to Home", ItemActionGroup.Organization, 0, "Pin");
-        if (library && request.Capabilities.Contains(ItemActionCapabilities.Collections) && !request.IsGuest) Add("collection.add", "Add to collection", ItemActionGroup.Organization, 10, "Collection");
+        if (library && request.Capabilities.Contains(ItemActionCapabilities.Collections) && !request.IsGuest) Add("collection.add", "Add to Shelf", ItemActionGroup.Organization, 10, "Collection");
+        if ((library || gallery) && request.Capabilities.Contains(ItemActionCapabilities.LifecycleStatus) && !request.IsGuest)
+        {
+            string backlog = gallery ? "Watch Later" : "Backlog";
+            string playing = gallery ? "Watching" : "Playing";
+            string completed = gallery ? "Watched" : "Completed";
+            actions.Add(new()
+            {
+                Id = "lifecycle",
+                Label = gallery ? "Video status" : "Game status",
+                Group = ItemActionGroup.Organization,
+                SortOrder = 20,
+                IconKey = "Details",
+                ChildActions =
+                [
+                    Status("lifecycle.unassigned", "Unassigned", ContentLifecycleStatus.Unassigned),
+                    Status("lifecycle.backlog", backlog, ContentLifecycleStatus.Backlog),
+                    Status("lifecycle.playing", playing, ContentLifecycleStatus.Playing),
+                    Status("lifecycle.completed", completed, ContentLifecycleStatus.Completed),
+                    Status("lifecycle.dropped", "Dropped", ContentLifecycleStatus.Dropped),
+                ],
+            });
+        }
         KeyValuePair<string,string>[] launchTargets=request.Options.Where(option=>option.Key.StartsWith("launchTarget.",StringComparison.Ordinal)).ToArray();
         if(library&&launchTargets.Length>1)
         {
@@ -74,8 +98,8 @@ public sealed class DefaultItemActionProvider : IItemActionProvider
         {
             Add("collection.pin", "Pin to Home", ItemActionGroup.Organization, 0, "Pin");
             Add("collection.home-row", "Add as Home row", ItemActionGroup.Organization, 10, "Collection");
-            Add("collection.rename", "Rename collection", ItemActionGroup.Manage, 0, "Edit");
-            Add("collection.delete", "Delete collection", ItemActionGroup.Destructive, 0, "Delete", "Deletes only this collection. Contained library and Gallery items remain.", confirm: true, destructive: true);
+            Add("collection.rename", "Rename Shelf", ItemActionGroup.Manage, 0, "Edit");
+            Add("collection.delete", "Delete Shelf", ItemActionGroup.Destructive, 0, "Delete", "Deletes only this Shelf. Games, apps, media, albums, and files remain untouched.", confirm: true, destructive: true);
         }
         if (discover)
         {
@@ -88,4 +112,13 @@ public sealed class DefaultItemActionProvider : IItemActionProvider
     }
 
     private static string ProviderName(string providerId) => providerId.ToLowerInvariant() switch { "steam" => "Steam", "epic" => "Epic Games", "gog" => "GOG", "ea" => "EA app", "ubisoft" => "Ubisoft Connect", "battlenet" => "Battle.net", "windows" or "windowsapps" => "Windows", _ => "provider" };
+
+    private static ItemActionDescriptor Status(string id, string label, ContentLifecycleStatus status) => new()
+    {
+        Id = id,
+        Label = label,
+        Group = ItemActionGroup.Organization,
+        IconKey = "Details",
+        ExecutionData = new Dictionary<string, string> { ["status"] = ((int)status).ToString(System.Globalization.CultureInfo.InvariantCulture) },
+    };
 }

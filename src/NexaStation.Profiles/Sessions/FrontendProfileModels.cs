@@ -36,6 +36,7 @@ public sealed record GuestModeSettings
 public interface IFrontendProfileStore
 {
     Task<FrontendProfile> GetOwnerAsync(CancellationToken cancellationToken = default);
+    Task SaveOwnerAsync(FrontendProfile profile, CancellationToken cancellationToken = default);
     Task<FrontendProfile?> GetGuestAsync(CancellationToken cancellationToken = default);
     Task<GuestModeSettings> GetGuestSettingsAsync(CancellationToken cancellationToken = default);
     Task SaveGuestAsync(FrontendProfile? profile, GuestModeSettings settings, CancellationToken cancellationToken = default);

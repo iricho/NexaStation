@@ -21,6 +21,7 @@ public sealed class LaunchCoordinator : ILaunchCoordinator
     private readonly IActivityTimelineService? _activityTimeline;
     private readonly IActivityPrivacyService? _activityPrivacy;
     private readonly IPresenceCoordinator? _presence;
+    private readonly IContentLifecycleService? _contentLifecycle;
     private int _launchInProgress;
 
     public LaunchCoordinator(
@@ -37,7 +38,8 @@ public sealed class LaunchCoordinator : ILaunchCoordinator
         ICompatibilityProfileResolver? compatibilityProfiles = null,
         IActivityTimelineService? activityTimeline = null,
         IActivityPrivacyService? activityPrivacy = null,
-        IPresenceCoordinator? presence = null)
+        IPresenceCoordinator? presence = null,
+        IContentLifecycleService? contentLifecycle = null)
     {
         _processLauncher = processLauncher;
         _windowService = windowService;
@@ -53,6 +55,7 @@ public sealed class LaunchCoordinator : ILaunchCoordinator
         _activityTimeline = activityTimeline;
         _activityPrivacy = activityPrivacy;
         _presence = presence;
+        _contentLifecycle = contentLifecycle;
     }
 
     public event EventHandler<LaunchStateChangedEventArgs>? StateChanged;
@@ -144,6 +147,7 @@ public sealed class LaunchCoordinator : ILaunchCoordinator
                     await RecordActivityStartedAsync(item,playSession,cancellationToken).ConfigureAwait(false);
                     await RecordActivityEndedAsync(item,playSession,now,0,ActivityResult.Succeeded,cancellationToken).ConfigureAwait(false);
                     TransitionTo(LaunchState.Running);
+                    await MarkGamePlayingAsync(item, cancellationToken).ConfigureAwait(false);
                     TransitionTo(LaunchState.Completed, ended: true);
                     return LaunchResult.Success(CurrentSession!);
                 }
@@ -188,6 +192,7 @@ public sealed class LaunchCoordinator : ILaunchCoordinator
                 await RecordActivityStartedAsync(item,playSession,cancellationToken).ConfigureAwait(false);
                 await RecordActivityEndedAsync(item,playSession,now,0,ActivityResult.Succeeded,cancellationToken).ConfigureAwait(false);
                 TransitionTo(LaunchState.Running);
+                await MarkGamePlayingAsync(item, cancellationToken).ConfigureAwait(false);
                 TransitionTo(LaunchState.Completed, ended: true);
                 return LaunchResult.Success(CurrentSession!);
             }
@@ -243,6 +248,7 @@ public sealed class LaunchCoordinator : ILaunchCoordinator
             await RecordActivityStartedAsync(item,playSession,cancellationToken).ConfigureAwait(false);
             elapsed = Stopwatch.StartNew();
             TransitionTo(LaunchState.Running);
+            await MarkGamePlayingAsync(item, cancellationToken).ConfigureAwait(false);
 
             if (item.DesktopControlEnabled && _desktopControl is not null)
             {
@@ -335,6 +341,22 @@ public sealed class LaunchCoordinator : ILaunchCoordinator
         }
 
         return LaunchResult.Failure(message, CurrentSession);
+    }
+
+    private async Task MarkGamePlayingAsync(LibraryItem item, CancellationToken cancellationToken)
+    {
+        if (_contentLifecycle is null || item.ContentType != ContentType.Game) return;
+        try
+        {
+            ContentLifecycleTarget target = ContentLifecycleTarget.Library(item.Id);
+            ContentLifecycleStatus status = await _contentLifecycle.GetStatusAsync(target, cancellationToken).ConfigureAwait(false);
+            if (status is ContentLifecycleStatus.Unassigned or ContentLifecycleStatus.Backlog)
+                await _contentLifecycle.SetStatusAsync(target, ContentLifecycleStatus.Playing, cancellationToken).ConfigureAwait(false);
+        }
+        catch(Exception exception) when(exception is not OperationCanceledException)
+        {
+            _logger.LogError("LifecycleStatusUpdateFailed", "The game launched, but its progress status could not be updated.", exception, Properties(item));
+        }
     }
 
     private async Task RestoreFrontendAsync(LaunchTarget? target = null)

@@ -81,7 +81,7 @@ public sealed class DashboardViewModel : ObservableObject, IDisposable
     public IReadOnlyList<CardViewModel> PrimaryItems=>Rows.Count>0?Rows[0].Items:[];
     public IReadOnlyList<CardViewModel> CurrentSectionItems=>Rows.SelectMany(row=>row.Items).DistinctBy(card=>card.Id).ToArray();
     public string CurrentSectionTitle=>SelectedSection.Title;
-    public string SectionDescription=>SelectedSection.Section==NavigationSection.Library?"Search, filter, edit, and validate your persistent local collection.":"Your offline library, ready for controller, keyboard, or mouse.";
+    public string SectionDescription=>SelectedSection.Section==NavigationSection.Library?"Search, filter, edit, and validate your persistent local library.":"Your offline library, ready for controller, keyboard, or mouse.";
     public CardViewModel? FeaturedItem=>_featuredItem;
     public IReadOnlyList<CardViewModel> HeroItems=>_heroItems;
     public int HeroCount=>HeroItems.Count;
@@ -234,7 +234,7 @@ public sealed class DashboardViewModel : ObservableObject, IDisposable
 
     private static IReadOnlyList<DashboardSectionViewModel> CreateShell()=>
     [
-        new(NavigationSection.Home,"Home","\uE80F",[]),new(NavigationSection.Games,"Games","\uE7FC",[]),new(NavigationSection.Apps,"Apps","\uECAA",[]),new(NavigationSection.Media,"Media","\uE8B2",[]),new(NavigationSection.Gallery,"Gallery","\uEB9F",[]),new(NavigationSection.Library,"Library","\uE8F1",[]),new(NavigationSection.Collections,"Collections","\uE8F1",[]),new(NavigationSection.Settings,"Settings","\uE713",[])
+        new(NavigationSection.Home,"Home","\uE80F",[]),new(NavigationSection.Games,"Games","\uE7FC",[]),new(NavigationSection.Apps,"Apps","\uECAA",[]),new(NavigationSection.Media,"Media","\uE8B2",[]),new(NavigationSection.Gallery,"Gallery","\uEB9F",[]),new(NavigationSection.Library,"Library","\uE8F1",[]),new(NavigationSection.Collections,"My Stuff","\uE8F1",[]),new(NavigationSection.Settings,"Settings","\uE713",[])
     ];
 
     private async Task RebuildHomeAsync(DashboardSectionViewModel section,IReadOnlyList<LibraryItem> all,IReadOnlyList<DashboardRowConfiguration> rows)
@@ -270,7 +270,7 @@ public sealed class DashboardViewModel : ObservableObject, IDisposable
         IEnumerable<LibraryItem> visible=all.Where(i=>!i.Hidden);section.Rows.Clear();
         IEnumerable<LibraryItem> selected=section.Section switch{NavigationSection.Games=>visible.Where(i=>i.ContentType==ContentType.Game),NavigationSection.Apps=>visible.Where(i=>i.ContentType==ContentType.Application),NavigationSection.Media=>visible.Where(i=>i.ContentType==ContentType.Media),NavigationSection.Library=>all, _=>[]};
         if(section.Section==NavigationSection.Library)selected=_libraryView switch{"Games"=>visible.Where(i=>i.ContentType==ContentType.Game),"Applications"=>visible.Where(i=>i.ContentType==ContentType.Application),"Favorites"=>visible.Where(i=>i.Favorite),"Recently Added"=>visible.OrderByDescending(i=>i.AddedAtUtc),"Recently Used"=>visible.Where(i=>i.LastLaunchedAtUtc is not null).OrderByDescending(i=>i.LastLaunchedAtUtc),"Hidden"=>all.Where(i=>i.Hidden),"Native"=>visible.Where(i=>i.LaunchTargets.All(t=>!string.Equals(t.ProviderId,"emulation",StringComparison.OrdinalIgnoreCase))),"Emulated"=>visible.Where(i=>i.LaunchTargets.Any(t=>string.Equals(t.ProviderId,"emulation",StringComparison.OrdinalIgnoreCase))),"Valid targets"=>visible.Where(i=>LaunchTargetValidator.Validate(i.LaunchTarget) is null),"Missing targets"=>visible.Where(i=>LaunchTargetValidator.Validate(i.LaunchTarget) is not null||i.LaunchTarget?.IsEnabled==false),_=>visible};
-        if(section.Section==NavigationSection.Gallery){section.Rows.Add(new("Gallery Preview",[]));return;}if(section.Section==NavigationSection.Collections){section.Rows.Add(new("Manual and Smart Collections",[]));return;}if(section.Section==NavigationSection.Settings){section.Rows.Add(new("Persistent Settings",[]));return;}if(section.Section==NavigationSection.Apps){IGrouping<string,LibraryItem>[] groups=selected.GroupBy(item=>item.PrimaryCategoryName??"Uncategorized").OrderBy(group=>group.Key,StringComparer.OrdinalIgnoreCase).ToArray();if(groups.Length==0)section.Rows.Add(new("Nothing here yet",[]));else foreach(IGrouping<string,LibraryItem> group in groups)Add(section,group.Key,group);return;}Add(section,selected.Any()?"Library":"Nothing here yet",selected);
+        if(section.Section==NavigationSection.Gallery){section.Rows.Add(new("Gallery Preview",[]));return;}if(section.Section==NavigationSection.Collections){section.Rows.Add(new("Personal and Dynamic Shelves",[]));return;}if(section.Section==NavigationSection.Settings){section.Rows.Add(new("Persistent Settings",[]));return;}if(section.Section==NavigationSection.Apps){IGrouping<string,LibraryItem>[] groups=selected.GroupBy(item=>item.PrimaryCategoryName??"Uncategorized").OrderBy(group=>group.Key,StringComparer.OrdinalIgnoreCase).ToArray();if(groups.Length==0)section.Rows.Add(new("Nothing here yet",[]));else foreach(IGrouping<string,LibraryItem> group in groups)Add(section,group.Key,group);return;}Add(section,selected.Any()?"Library":"Nothing here yet",selected);
     }
     private void Add(DashboardSectionViewModel section,string title,IEnumerable<LibraryItem> items)
     {

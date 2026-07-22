@@ -129,6 +129,7 @@ public sealed partial class App : Application, IDisposable
         services.AddSingleton<IDiagnosticsExportService, DiagnosticsExportService>();
         services.AddSingleton<IOnboardingStateStore>(_ => new OnboardingStateStore(paths.OnboardingState));
         services.AddSingleton<OnboardingFlowService>();
+        services.AddSingleton<OnboardingSetupCoordinator>();
         services.AddSingleton<IStartupTaskService, PackagedStartupTaskService>();
         services.AddSingleton<IActivationRouter>(activationRouter);
         services.AddSingleton(ReleaseInfo.FromAssembly(typeof(App).Assembly, ReleaseChannel.Development));
@@ -157,6 +158,7 @@ public sealed partial class App : Application, IDisposable
         services.AddSingleton<IRegressionCaseRepository>(provider => provider.GetRequiredService<SqliteQualityStore>());
         services.AddSingleton<ILibraryRepository, SqliteLibraryRepository>();
         services.AddSingleton<IPlaySessionRepository, SqlitePlaySessionRepository>();
+        services.AddSingleton<IContentLifecycleService, SqliteContentLifecycleService>();
         services.AddSingleton<ISettingsRepository, SqliteSettingsRepository>();
         services.AddSingleton<IApplicationStateRepository, SqliteApplicationStateRepository>();
         services.AddSingleton<IApplicationStateService, ApplicationStateService>();
@@ -381,6 +383,11 @@ public sealed partial class App : Application, IDisposable
         if (onboardingLoad.State.Status is OnboardingStatus.NeverStarted or OnboardingStatus.InProgress)
         {
             OnboardingState onboardingState = await onboardingFlow.StartOrResumeAsync(isUpgrade);
+            if (isUpgrade && onboardingState.CurrentStep == OnboardingStep.Welcome && onboardingState.Preferences.AppearanceDecision == OnboardingDecisionState.Unanswered)
+            {
+                OnboardingPreferences seeded = await _services.GetRequiredService<OnboardingSetupCoordinator>().SeedUpgradePreferencesAsync(onboardingState.Preferences);
+                onboardingState = await onboardingFlow.SavePreferencesAsync(onboardingState, seeded);
+            }
             bool shouldContinue = await RunOnboardingAsync(onboardingFlow, onboardingState, onboardingLoad.RecoveryMessage);
             if (!shouldContinue)
             {
@@ -389,8 +396,6 @@ public sealed partial class App : Application, IDisposable
                 return;
             }
 
-            OnboardingLoadResult completedOnboarding = await onboardingFlow.GetStateAsync(isUpgrade);
-            await ApplyOnboardingPreferencesAsync(completedOnboarding.State.Preferences);
         }
 
         _window = _services.GetRequiredService<MainWindow>();
@@ -463,7 +468,7 @@ public sealed partial class App : Application, IDisposable
         WriteBootstrap(bootstrapLog, "Constructing the onboarding window.");
         IInputService onboardingInput = _services.GetRequiredService<IInputService>();
         onboardingInput.Start();
-        _onboardingWindow = new(flow, _services.GetRequiredService<IStartupTaskService>(), state, onboardingInput, _services.GetRequiredService<IInputGlyphService>(), recoveryNotice);
+        _onboardingWindow = new(flow, _services.GetRequiredService<OnboardingSetupCoordinator>(), state, onboardingInput, _services.GetRequiredService<IInputGlyphService>(), recoveryNotice);
         WriteBootstrap(bootstrapLog, "Onboarding window constructed.");
         _onboardingWindow.SetupFinished += (_, _) => completion.TrySetResult(true);
         _onboardingWindow.Closed += (_, _) => completion.TrySetResult(false);

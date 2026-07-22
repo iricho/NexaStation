@@ -11,7 +11,7 @@ public enum PinTargetType { LibraryItem, GalleryMediaItem, GalleryAlbum, Gallery
 public enum PinLocation { Home, Games, Apps, Media, Gallery, QuickAccess, CrossbarCategory, HandheldFavoritesStrip }
 public enum CollectionType { Manual, Smart, Folder }
 public enum CollectionTargetType { LibraryItem, GalleryMediaItem, GalleryAlbum, GallerySource, ApplicationCategory, Platform, Provider, Collection, SystemShortcut }
-public enum SmartRuleField { ContentType, Provider, Platform, Favorite, Hidden, Installed, Available, RecentlyPlayed, RecentlyOpened, AddedDate, LastActivityDate, Playtime, ApplicationCategory, MediaType, GallerySourceKind, Emulator, ControllerProfileEnabled, Title, UserTag }
+public enum SmartRuleField { ContentType, Provider, Platform, Favorite, Hidden, Installed, Available, RecentlyPlayed, RecentlyOpened, AddedDate, LastActivityDate, Playtime, ApplicationCategory, MediaType, GallerySourceKind, Emulator, ControllerProfileEnabled, Title, UserTag, LifecycleStatus }
 public enum SmartRuleOperator { Equals, NotEquals, Contains, StartsWith, GreaterThan, LessThan, Before, After, IsTrue, IsFalse, In, NotIn }
 public enum SmartRuleMatchMode { MatchAll, MatchAny }
 public enum ThemeType { Dark, Light, HighContrast, Custom }
@@ -37,7 +37,15 @@ public sealed record CollectionItem(string CollectionId,CollectionTargetType Tar
 public sealed record SmartCollectionRule(string Id,string CollectionId,int RuleGroup,SmartRuleField Field,SmartRuleOperator Operator,string? ValueJson,int SortOrder,DateTime CreatedAtUtc,DateTime UpdatedAtUtc);
 public sealed record SmartCollectionDefinition(CollectionDefinition Collection,IReadOnlyList<SmartCollectionRule> Rules);
 public sealed record SmartCollectionValidationResult(bool Valid,IReadOnlyList<string> Errors);
-public sealed record CollectionResolvedItem(CollectionTargetType TargetType,string TargetId,string DisplayName,bool Available,LibraryItem? LibraryItem=null);
+public sealed record CollectionResolvedItem(
+    CollectionTargetType TargetType,
+    string TargetId,
+    string DisplayName,
+    bool Available,
+    LibraryItem? LibraryItem = null,
+    GalleryMediaItem? GalleryMediaItem = null,
+    GalleryAlbum? GalleryAlbum = null,
+    CollectionDefinition? NestedShelf = null);
 
 public sealed record BackgroundDefinition(BackgroundType Type,string? Value=null,BackgroundStretch Stretch=BackgroundStretch.Fill,int BlurAmount=0,double DarkeningOverlay=.35,double Opacity=1,bool ManagedCopy=false);
 public sealed record ThemeDefinition(string Id,string Name,string Description,ThemeType ThemeType,string AccentColor,string? SecondaryAccentColor,BackgroundDefinition Background,CardShape CardShape,double SurfaceOpacity,bool BlurEnabled,AnimationIntensity AnimationIntensity,string? SoundPackId,bool BuiltIn,string Version,string AuthorDisplayName,string MinimumNexaStationVersion,bool Enabled=true);

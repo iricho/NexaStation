@@ -174,25 +174,41 @@ public sealed class LaunchCoordinatorTests
         Assert.Equal(1, context.Window.FullscreenRestoreCount);
     }
 
-    private static LibraryItem CreateItem(string id = "notepad", LaunchTarget? target = null)
+    [Theory]
+    [InlineData(ContentLifecycleStatus.Unassigned,ContentLifecycleStatus.Playing)]
+    [InlineData(ContentLifecycleStatus.Backlog,ContentLifecycleStatus.Playing)]
+    [InlineData(ContentLifecycleStatus.Completed,ContentLifecycleStatus.Completed)]
+    [InlineData(ContentLifecycleStatus.Dropped,ContentLifecycleStatus.Dropped)]
+    public async Task SuccessfulGameLaunchUsesSafeAutomaticLifecycleTransition(ContentLifecycleStatus initial,ContentLifecycleStatus expected)
+    {
+        MemoryLifecycle lifecycle=new(initial);TestContext context=new(lifecycle:lifecycle);LaunchResult result=await context.Coordinator.LaunchAsync(CreateItem("game",contentType:ContentType.Game));Assert.True(result.Succeeded);Assert.Equal(expected,lifecycle.Status);
+    }
+
+    [Fact]
+    public async Task FailedGameLaunchDoesNotChangeLifecycleStatus()
+    {
+        MemoryLifecycle lifecycle=new(ContentLifecycleStatus.Backlog);TestContext context=new(lifecycle:lifecycle);context.Launcher.Exception=new InvalidOperationException("failed");Assert.False((await context.Coordinator.LaunchAsync(CreateItem("game",contentType:ContentType.Game))).Succeeded);Assert.Equal(ContentLifecycleStatus.Backlog,lifecycle.Status);
+    }
+
+    private static LibraryItem CreateItem(string id = "notepad", LaunchTarget? target = null,ContentType contentType=ContentType.Application)
     {
         LaunchTarget launchTarget = (target ?? new LaunchTarget(LaunchType.Executable, "notepad.exe")) with { LibraryItemId = id };
         return new LibraryItem
         {
             Id = id, Title = "Notepad", SortTitle = "Notepad", Subtitle = "Test", Description = "Test item",
-            ContentType = ContentType.Application, AddedAtUtc = DateTime.UtcNow, UpdatedAtUtc = DateTime.UtcNow,
+            ContentType = contentType, AddedAtUtc = DateTime.UtcNow, UpdatedAtUtc = DateTime.UtcNow,
             DefaultLaunchTargetId = launchTarget.Id, LaunchTargets = [launchTarget],
         };
     }
 
     private sealed class TestContext
     {
-        public TestContext(Task<int>? exitTask = null,IEmulatorLaunchResolver? resolver=null)
+        public TestContext(Task<int>? exitTask = null,IEmulatorLaunchResolver? resolver=null,IContentLifecycleService? lifecycle=null)
         {
             Launcher = new FakeProcessLauncher(exitTask ?? Task.FromResult(0));
             Window = new FakeWindowService();
             Selection = new SelectionStateService();
-            Coordinator = new LaunchCoordinator(Launcher, Window, Selection, new FakeLogger(),emulatorResolver:resolver);
+            Coordinator = new LaunchCoordinator(Launcher, Window, Selection, new FakeLogger(),emulatorResolver:resolver,contentLifecycle:lifecycle);
         }
 
         public FakeProcessLauncher Launcher { get; }
@@ -202,6 +218,11 @@ public sealed class LaunchCoordinatorTests
         public SelectionStateService Selection { get; }
 
         public LaunchCoordinator Coordinator { get; }
+    }
+
+    private sealed class MemoryLifecycle(ContentLifecycleStatus initial):IContentLifecycleService
+    {
+        public ContentLifecycleStatus Status{get;private set;}=initial;public Task<ContentLifecycleStatus> GetStatusAsync(ContentLifecycleTarget target,CancellationToken cancellationToken=default)=>Task.FromResult(Status);public Task<IReadOnlyList<ContentLifecycleEntry>> QueryAsync(ContentLifecycleQuery query,CancellationToken cancellationToken=default)=>Task.FromResult<IReadOnlyList<ContentLifecycleEntry>>([]);public Task SetStatusAsync(ContentLifecycleTarget target,ContentLifecycleStatus status,CancellationToken cancellationToken=default){Status=status;return Task.CompletedTask;}public Task ClearStatusAsync(ContentLifecycleTarget target,CancellationToken cancellationToken=default){Status=ContentLifecycleStatus.Unassigned;return Task.CompletedTask;}public Task<int> ClearStaleTargetsAsync(ContentLifecycleTargetType targetType,IReadOnlyCollection<string> validTargetIds,CancellationToken cancellationToken=default)=>Task.FromResult(0);
     }
 
     private sealed class FakeProcessLauncher(Task<int> exitTask) : IProcessLauncher

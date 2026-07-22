@@ -61,6 +61,7 @@ using NexaStation.Display.Handheld;
 using NexaStation.Profiles.Pin;
 using NexaStation.Profiles.Restrictions;
 using NexaStation.Profiles.Sessions;
+using NexaStation.Onboarding;
 using NexaStation.Infrastructure.RemotePlay;
 using NexaStation.App.Controls;
 using NexaStation.Interaction.ActionTargets;
@@ -74,7 +75,8 @@ namespace NexaStation.App;
 
 public sealed partial class MainWindow : Window,IDisposable
 {
-    private readonly string _localUserName = string.IsNullOrWhiteSpace(Environment.UserName) ? "Owner" : Environment.UserName.Trim();
+    private string _localUserName = string.IsNullOrWhiteSpace(Environment.UserName) ? "Owner" : Environment.UserName.Trim();
+    private string _ownerAvatarKey = "owner";
     private readonly IInputService _inputService;
     private readonly WindowFullscreenService _windowService;
     private readonly IAppLogger _logger;
@@ -120,6 +122,7 @@ public sealed partial class MainWindow : Window,IDisposable
     private readonly IPinService _pins;
     private readonly ICollectionService _collections;
     private readonly ISmartCollectionQueryService _smartCollections;
+    private readonly IContentLifecycleService _contentLifecycle;
     private readonly IThemeService _themes;
     private readonly IThemeAssetService _themeAssets;
     private readonly IUiSoundService _sounds;
@@ -156,6 +159,8 @@ public sealed partial class MainWindow : Window,IDisposable
     private readonly SafeAreaCalibrationService _safeAreaCalibration;
     private readonly IGuestModeService _guestMode;
     private readonly IFrontendProfileStore _frontendProfiles;
+    private readonly OnboardingSetupCoordinator _onboardingCoordinator;
+    private OnboardingWindow? _setupAssistant;
     private readonly IOwnerPinService _ownerPin;
     private readonly IContentRestrictionStore _contentRestrictions;
     private readonly IItemContextMenuService _itemContextMenus;
@@ -204,6 +209,7 @@ public sealed partial class MainWindow : Window,IDisposable
     private CancellationTokenSource? _artworkJobMonitor;
     private ArtworkJobSnapshot? _activeArtworkJob;
     private Control? _contextMenuOrigin;
+    private Control? _shelfFocusOrigin;
     private Control? _settingsFocusOrigin;
     private string _crossbarSecondaryId="continue";
 
@@ -255,6 +261,7 @@ public sealed partial class MainWindow : Window,IDisposable
         IPinService pins,
         ICollectionService collections,
         ISmartCollectionQueryService smartCollections,
+        IContentLifecycleService contentLifecycle,
         IThemeService themes,
         IThemeAssetService themeAssets,
         IUiSoundService sounds,
@@ -321,7 +328,8 @@ public sealed partial class MainWindow : Window,IDisposable
         IEmulatorDiscoveryService emulatorDiscovery,
         IThemeManager themeManager,
         ISettingsCatalog settingsCatalog,
-        ISettingsSearchService settingsSearch)
+        ISettingsSearchService settingsSearch,
+        OnboardingSetupCoordinator onboardingCoordinator)
     {
         ViewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         GalleryViewModel = galleryViewModel ?? throw new ArgumentNullException(nameof(galleryViewModel));
@@ -353,12 +361,12 @@ public sealed partial class MainWindow : Window,IDisposable
         _galleryViewer=galleryViewer;
         _galleryAlbums=galleryAlbums;
         _galleryWatchers=galleryWatchers;
-        _quickMenu=quickMenu;_holdSafety=holdSafety;_volume=volume;_audioOutputs=audioOutputs;_systemMedia=systemMedia;_controllerStatus=controllerStatus;_windowActions=windowActions;_power=power;_systemActionHistory=systemActionHistory;_notifications=notifications;_mediaAssociations=mediaAssociations;_time=time;_layouts=layouts;_dashboardConfiguration=dashboardConfiguration;_pins=pins;_collections=collections;_smartCollections=smartCollections;_themes=themes;_themeAssets=themeAssets;_sounds=sounds;_performance=performance;_interfaceConfiguration=interfaceConfiguration;_semanticFocus=semanticFocus;_presentation=presentation;_homeDensityPolicy=homeDensityPolicy;
+        _quickMenu=quickMenu;_holdSafety=holdSafety;_volume=volume;_audioOutputs=audioOutputs;_systemMedia=systemMedia;_controllerStatus=controllerStatus;_windowActions=windowActions;_power=power;_systemActionHistory=systemActionHistory;_notifications=notifications;_mediaAssociations=mediaAssociations;_time=time;_layouts=layouts;_dashboardConfiguration=dashboardConfiguration;_pins=pins;_collections=collections;_smartCollections=smartCollections;_contentLifecycle=contentLifecycle;_themes=themes;_themeAssets=themeAssets;_sounds=sounds;_performance=performance;_interfaceConfiguration=interfaceConfiguration;_semanticFocus=semanticFocus;_presentation=presentation;_homeDensityPolicy=homeDensityPolicy;
         _paths=paths;_databaseBackups=databaseBackups;_diagnosticsExport=diagnosticsExport;_startupTask=startupTask;_releaseInfo=releaseInfo;
         _compatibilityResolver=compatibilityResolver;_compatibilityProfiles=compatibilityProfiles;_compatibilityReports=compatibilityReports;_compatibilityFeedSettings=compatibilityFeedSettings;_reproductionBundles=reproductionBundles;_issuePreparation=issuePreparation;_navigationAudit=navigationAudit;
         _activeInputMode=activeInputMode;_inputGlyphs=inputGlyphs;_promptPreferences=promptPreferences;_inputBindings=inputBindings;_bindingService=bindingService;_inputMappings=inputMappings;_inputProfiles=inputProfiles;_controllerPreferences=controllerPreferences;_inputContext=inputContext;_onScreenKeyboard=onScreenKeyboard;_displaySelection=displaySelection;_displayPreferences=displayPreferences;_displayCalibrations=displayCalibrations;_safeAreaCalibration=safeAreaCalibration;_guestMode=guestMode;_frontendProfiles=frontendProfiles;_ownerPin=ownerPin;_contentRestrictions=contentRestrictions;_itemContextMenus=itemContextMenus;_artworkProviders=artworkProviders.ToArray();_providerCredentials=providerCredentials;_artworkJobs=artworkJobs;_artworkJobProcessor=artworkJobProcessor;_artworkPreflight=artworkPreflight;_artworkProviderTester=artworkProviderTester;_artworkPresence=artworkPresence;_artworkAssignments=artworkAssignments;_artworkReviews=artworkReviews;
         _activityTimeline=activityTimeline;_activityExport=activityExport;_screenshotCapture=screenshotCapture;_captureConsent=captureConsent;_globalHotkeys=globalHotkeys;_snippingTool=snippingTool;_remotePlayProfiles=remotePlayProfiles;_remotePlayLaunch=remotePlayLaunch;_ecosystemCapabilities=ecosystemCapabilities;
-        _actionTargets=actionTargets;_primaryActions=primaryActions;_nativeMediaPlayer=nativeMediaPlayer;_externalMediaPlayers=externalMediaPlayers;_emulatorDiscovery=emulatorDiscovery;_themeManager=themeManager;_settingsCatalog=settingsCatalog;_settingsSearch=settingsSearch;
+        _actionTargets=actionTargets;_primaryActions=primaryActions;_nativeMediaPlayer=nativeMediaPlayer;_externalMediaPlayers=externalMediaPlayers;_emulatorDiscovery=emulatorDiscovery;_themeManager=themeManager;_settingsCatalog=settingsCatalog;_settingsSearch=settingsSearch;_onboardingCoordinator=onboardingCoordinator;
         RegisterPrimaryActionHandlers(primaryActionRegistration);
         RegisterQuickMenuActions();
 
@@ -726,6 +734,9 @@ public sealed partial class MainWindow : Window,IDisposable
         ApplyHomeDensity();
         RefreshSectionSurface();
         await ApplyPersistedDisplayAsync();
+        FrontendProfile ownerProfile = await _frontendProfiles.GetOwnerAsync();
+        _localUserName = ownerProfile.Name;
+        _ownerAvatarKey = ownerProfile.AvatarKey ?? "owner";
         _guestSettings = await _frontendProfiles.GetGuestSettingsAsync();
         ApplyGuestPresentation();
         try{await EnsureAutomaticSmartLibrariesAsync();}
@@ -790,9 +801,8 @@ public sealed partial class MainWindow : Window,IDisposable
 
     private async Task OpenCollectionAsync(CollectionCardViewModel card)
     {
-        CollectionDefinition collection=await _collections.GetByIdAsync(card.Id)??card.Definition;IReadOnlyList<CollectionItem> manual=await _collections.GetItemsAsync(collection.Id);IReadOnlyList<CollectionResolvedItem> smart=collection.CollectionType==CollectionType.Smart?await _smartCollections.EvaluateAsync(collection.Id,100):[];string body=collection.CollectionType==CollectionType.Smart?string.Join(Environment.NewLine,smart.Select(x=>$"• {x.DisplayName}")):manual.Count==0?"This collection is empty.":string.Join(Environment.NewLine,manual.Select(x=>$"• {x.TargetType}: {x.TargetId}"));await Dialog(collection.Name,new ScrollViewer{Content=new TextBlock{Text=(collection.Description+Environment.NewLine+Environment.NewLine+body).Trim(),TextWrapping=TextWrapping.Wrap},MaxHeight=500},"Close",null,string.Empty).ShowAsync();
+        await ShowShelfDetailAsync(await _collections.GetByIdAsync(card.Id)??card.Definition);
     }
-
     public void RefreshSectionSurface()
     {
         // SelectedIndex raises SelectionChanged while InitializeComponent is still
@@ -917,7 +927,7 @@ public sealed partial class MainWindow : Window,IDisposable
     private void UpdateGalleryEmptyState()
     {
         if (GalleryViewModel.Rows is null || GalleryViewModel.HomePreview is null || GalleryViewModel.Sources is null)
-            throw new InvalidOperationException("Gallery collections were not initialized before the view was refreshed.");
+            throw new InvalidOperationException("Gallery rows were not initialized before the view was refreshed.");
     }
     private void OnPresentationChanged(object? sender,LayoutPresentationState state)=>DispatcherQueue.TryEnqueue(()=>ApplyPresentation(state));
     private void ApplyPresentation(LayoutPresentationState state)
@@ -1104,14 +1114,27 @@ public sealed partial class MainWindow : Window,IDisposable
     private async void CreateCollection_Click(object sender,RoutedEventArgs e)
     {
         try{await CreateCollectionAsync();}
-        catch(Exception exception){_logger.LogError("CollectionCreateFailed","A collection could not be created.",exception);ViewModel.ReportStatus($"The collection could not be created: {exception.Message}");await _sounds.PlayAsync(UiSoundEvent.Error);}
+        catch(Exception exception){_logger.LogError("ShelfCreateFailed","A Shelf could not be created.",exception);ViewModel.ReportStatus($"The Shelf could not be created: {exception.Message}");await _sounds.PlayAsync(UiSoundEvent.Error);}
     }
     private async Task CreateCollectionAsync()
     {
-        TextBox name=new(){Header="Name",MinWidth=380};TextBox description=new(){Header="Description (optional)",MinWidth=380};ComboBox type=new(){Header="Type",ItemsSource=Enum.GetValues<CollectionType>(),SelectedIndex=0,MinWidth=380};ComboBox parent=new(){Header="Parent collection (optional)",ItemsSource=(await _collections.GetAsync()).Where(x=>x.CollectionType==CollectionType.Folder).ToArray(),DisplayMemberPath="Name",PlaceholderText="Top level",MinWidth=380};ComboBox field=new(){Header="Smart rule field",ItemsSource=Enum.GetValues<SmartRuleField>(),SelectedItem=SmartRuleField.Title,MinWidth=380};ComboBox operation=new(){Header="Smart rule operator",ItemsSource=Enum.GetValues<SmartRuleOperator>(),SelectedItem=SmartRuleOperator.Contains,MinWidth=380};TextBox value=new(){Header="Smart rule value",MinWidth=380};StackPanel panel=new(){Spacing=8};foreach(UIElement control in new UIElement[]{name,description,type,parent,field,operation,value})panel.Children.Add(control);type.SelectionChanged+=(_,_)=>{bool smart=type.SelectedItem is CollectionType.Smart;field.Visibility=operation.Visibility=value.Visibility=smart?Visibility.Visible:Visibility.Collapsed;};field.Visibility=operation.Visibility=value.Visibility=Visibility.Collapsed;
-        if(await Dialog("Create Collection",panel,"Create",null,"Cancel").ShowAsync()!=ContentDialogResult.Primary||string.IsNullOrWhiteSpace(name.Text)||type.SelectedItem is not CollectionType selectedType)return;DateTime now=DateTime.UtcNow;CollectionDefinition saved=await _collections.SaveAsync(new("",name.Text.Trim(),description.Text.Trim(),selectedType,null,null,(parent.SelectedItem as CollectionDefinition)?.Id,0,false,SmartRuleMatchMode.MatchAll,now,now));
-        if(selectedType==CollectionType.Smart&&field.SelectedItem is SmartRuleField selectedField&&operation.SelectedItem is SmartRuleOperator selectedOperator){SmartCollectionRule rule=new(Guid.NewGuid().ToString("N"),saved.Id,0,selectedField,selectedOperator,System.Text.Json.JsonSerializer.Serialize(value.Text.Trim()),0,now,now);SmartCollectionValidationResult validation=await _smartCollections.ValidateAsync(new(saved,[rule]));if(!validation.Valid){await _collections.DeleteAsync(saved.Id);ViewModel.ReportStatus(string.Join(" ",validation.Errors));return;}await _collections.SetRulesAsync(saved.Id,[rule]);}
+        TextBox name=new(){Header="Shelf name",MinWidth=500};TextBox description=new(){Header="Description (optional)",MinWidth=500};ComboBox type=new(){Header="Shelf type",ItemsSource=new[]{new ShelfTypeOption(CollectionType.Manual,"Shelf"),new ShelfTypeOption(CollectionType.Smart,"Dynamic Shelf"),new ShelfTypeOption(CollectionType.Folder,"Shelf Group")},DisplayMemberPath="Name",SelectedIndex=0,MinWidth=500};ComboBox parent=new(){Header="Shelf Group (optional)",ItemsSource=(await _collections.GetAsync()).Where(x=>x.CollectionType==CollectionType.Folder&&!x.Id.StartsWith("auto:",StringComparison.Ordinal)).ToArray(),DisplayMemberPath="Name",PlaceholderText="Top level",MinWidth=500};ComboBox match=new(){Header="Rules",ItemsSource=new[]{new MatchModeOption(SmartRuleMatchMode.MatchAll,"Match All"),new MatchModeOption(SmartRuleMatchMode.MatchAny,"Match Any")},DisplayMemberPath="Name",SelectedIndex=0,MinWidth=500};
+        SmartRuleField[] fields=[SmartRuleField.Title,SmartRuleField.ContentType,SmartRuleField.Provider,SmartRuleField.Platform,SmartRuleField.Favorite,SmartRuleField.Hidden,SmartRuleField.Available,SmartRuleField.RecentlyPlayed,SmartRuleField.RecentlyOpened,SmartRuleField.AddedDate,SmartRuleField.LastActivityDate,SmartRuleField.Playtime,SmartRuleField.ApplicationCategory,SmartRuleField.MediaType,SmartRuleField.GallerySourceKind,SmartRuleField.Emulator,SmartRuleField.LifecycleStatus];List<DynamicRuleRow> rows=Enumerable.Range(0,5).Select(index=>new DynamicRuleRow(index,fields)).ToList();rows[0].Root.Visibility=Visibility.Visible;Button addRule=new(){Content="Add Rule"};Button removeRule=new(){Content="Remove Last Rule"};Button previewButton=new(){Content="Preview up to 100 results"};TextBlock preview=new(){Text="Preview has not been run.",TextWrapping=TextWrapping.Wrap,Opacity=.8};StackPanel rulesPanel=new(){Spacing=8};rulesPanel.Children.Add(match);foreach(DynamicRuleRow row in rows)rulesPanel.Children.Add(row.Root);StackPanel ruleButtons=new(){Orientation=Orientation.Horizontal,Spacing=8};ruleButtons.Children.Add(addRule);ruleButtons.Children.Add(removeRule);ruleButtons.Children.Add(previewButton);rulesPanel.Children.Add(ruleButtons);rulesPanel.Children.Add(preview);int visibleRules=1;addRule.Click+=(_,_)=>{if(visibleRules<rows.Count)rows[visibleRules++].Root.Visibility=Visibility.Visible;};removeRule.Click+=(_,_)=>{if(visibleRules>1)rows[--visibleRules].Root.Visibility=Visibility.Collapsed;};
+        StackPanel panel=new(){Spacing=10};foreach(UIElement control in new UIElement[]{name,description,type,parent,rulesPanel})panel.Children.Add(control);void UpdateType(){rulesPanel.Visibility=type.SelectedItem is ShelfTypeOption{Type:CollectionType.Smart}?Visibility.Visible:Visibility.Collapsed;}type.SelectionChanged+=(_,_)=>UpdateType();UpdateType();
+        SmartCollectionDefinition Draft(){DateTime at=DateTime.UtcNow;SmartRuleMatchMode mode=(match.SelectedItem as MatchModeOption)?.Mode??SmartRuleMatchMode.MatchAll;CollectionDefinition definition=new("preview",string.IsNullOrWhiteSpace(name.Text)?"Untitled Dynamic Shelf":name.Text.Trim(),description.Text.Trim(),CollectionType.Smart,null,null,null,0,false,mode,at,at);return new(definition,rows.Take(visibleRules).Select((row,index)=>row.Create("preview",index,at)).ToArray());}
+        previewButton.Click+=async(_,_)=>{try{IReadOnlyList<CollectionResolvedItem> results=await _smartCollections.PreviewAsync(Draft(),100);preview.Text=results.Count==0?"No matches yet.":$"{results.Count}{(results.Count==100?"+":string.Empty)} match(es): {string.Join(", ",results.Take(8).Select(item=>item.DisplayName))}{(results.Count>8?"…":string.Empty)}";}catch(Exception exception){preview.Text=exception.Message;}};
+        if(await Dialog("Create Shelf",new ScrollViewer{Content=panel,MaxHeight=640},"Create",null,"Cancel").ShowAsync()!=ContentDialogResult.Primary||string.IsNullOrWhiteSpace(name.Text)||type.SelectedItem is not ShelfTypeOption selected)return;DateTime now=DateTime.UtcNow;SmartRuleMatchMode selectedMatch=(match.SelectedItem as MatchModeOption)?.Mode??SmartRuleMatchMode.MatchAll;CollectionDefinition saved=await _collections.SaveAsync(new("",name.Text.Trim(),description.Text.Trim(),selected.Type,null,null,(parent.SelectedItem as CollectionDefinition)?.Id,0,false,selectedMatch,now,now));
+        if(selected.Type==CollectionType.Smart){SmartCollectionRule[] rules=rows.Take(visibleRules).Select((row,index)=>row.Create(saved.Id,index,now)).ToArray();SmartCollectionValidationResult validation=await _smartCollections.ValidateAsync(new(saved,rules));if(!validation.Valid){await _collections.DeleteAsync(saved.Id);ViewModel.ReportStatus(string.Join(" ",validation.Errors));return;}await _collections.SetRulesAsync(saved.Id,rules);}
         _smartCollections.Invalidate();await CustomizationViewModel.RefreshCollectionsAsync();ViewModel.ReportStatus($"Created {saved.Name}.");
+    }
+    private sealed record ShelfTypeOption(CollectionType Type,string Name);
+    private sealed record MatchModeOption(SmartRuleMatchMode Mode,string Name);
+    private sealed class DynamicRuleRow
+    {
+        public DynamicRuleRow(int index,IReadOnlyList<SmartRuleField> fields){Field=new(){Header=$"Rule {index+1} field",ItemsSource=fields,SelectedItem=SmartRuleField.Title,MinWidth=185};Operator=new(){Header="Condition",ItemsSource=Enum.GetValues<SmartRuleOperator>(),SelectedItem=SmartRuleOperator.Contains,MinWidth=150};Value=new(){Header="Value",PlaceholderText="Text, date, number, status, or enum value",MinWidth=220};Root=new(){Orientation=Orientation.Horizontal,Spacing=8,Visibility=Visibility.Collapsed};Root.Children.Add(Field);Root.Children.Add(Operator);Root.Children.Add(Value);Field.SelectionChanged+=(_,_)=>Configure();Configure();}
+        public StackPanel Root{get;}public ComboBox Field{get;}public ComboBox Operator{get;}public TextBox Value{get;}
+        public SmartCollectionRule Create(string shelfId,int order,DateTime at){SmartRuleField field=Field.SelectedItem is SmartRuleField selected?selected:SmartRuleField.Title;SmartRuleOperator operation=Operator.SelectedItem is SmartRuleOperator op?op:SmartRuleOperator.Equals;string? value=operation is SmartRuleOperator.IsTrue or SmartRuleOperator.IsFalse?null:System.Text.Json.JsonSerializer.Serialize(Value.Text.Trim());return new(Guid.NewGuid().ToString("N"),shelfId,0,field,operation,value,order,at,at);}
+        private void Configure(){SmartRuleField field=Field.SelectedItem is SmartRuleField selected?selected:SmartRuleField.Title;bool boolean=field is SmartRuleField.Favorite or SmartRuleField.Hidden or SmartRuleField.Available or SmartRuleField.RecentlyPlayed or SmartRuleField.RecentlyOpened;if(boolean){Operator.ItemsSource=new[]{SmartRuleOperator.IsTrue,SmartRuleOperator.IsFalse};Operator.SelectedIndex=0;Value.Visibility=Visibility.Collapsed;}else{Operator.ItemsSource=field is SmartRuleField.AddedDate or SmartRuleField.LastActivityDate?new[]{SmartRuleOperator.Before,SmartRuleOperator.After,SmartRuleOperator.Equals}:field==SmartRuleField.Playtime?new[]{SmartRuleOperator.Equals,SmartRuleOperator.GreaterThan,SmartRuleOperator.LessThan}:new[]{SmartRuleOperator.Equals,SmartRuleOperator.NotEquals,SmartRuleOperator.Contains,SmartRuleOperator.StartsWith,SmartRuleOperator.In,SmartRuleOperator.NotIn};Operator.SelectedIndex=0;Value.Visibility=Visibility.Visible;Value.PlaceholderText=field switch{SmartRuleField.LifecycleStatus=>"Unassigned, Backlog, Playing, Completed, or Dropped",SmartRuleField.MediaType=>"Image, AnimatedImage, or Video",SmartRuleField.GallerySourceKind=>"Photos, Screenshots, Recordings, Videos, Wallpapers, or Custom",SmartRuleField.ContentType=>"Game or Application",SmartRuleField.AddedDate or SmartRuleField.LastActivityDate=>"YYYY-MM-DD",SmartRuleField.Playtime=>"Seconds",_=>"Value"};}}
     }
 
     private async Task<int> EnsureAutomaticSmartLibrariesAsync()
@@ -1195,9 +1218,43 @@ public sealed partial class MainWindow : Window,IDisposable
 
     private async void Collection_ItemClick(object sender,ItemClickEventArgs e)
     {
-        CollectionDefinition? collection=e.ClickedItem switch{CollectionCardViewModel card=>card.Definition,CollectionDefinition definition=>definition,_=>null};if(collection is null)return;IReadOnlyList<CollectionItem> manual=await _collections.GetItemsAsync(collection.Id);IReadOnlyList<CollectionResolvedItem> smart=collection.CollectionType==CollectionType.Smart?await _smartCollections.EvaluateAsync(collection.Id,100):[];string body=collection.CollectionType==CollectionType.Smart?string.Join(Environment.NewLine,smart.Select(x=>$"• {x.DisplayName}")):manual.Count==0?"This collection is empty.":string.Join(Environment.NewLine,manual.Select(x=>$"• {x.TargetType}: {x.TargetId}"));
-        ContentDialogResult result=await Dialog(collection.Name,new ScrollViewer{Content=new TextBlock{Text=(collection.Description+Environment.NewLine+Environment.NewLine+body).Trim(),TextWrapping=TextWrapping.Wrap},MaxHeight=500},"Pin to Home","Add as Home Row","Close").ShowAsync();if(result==ContentDialogResult.Primary){await _pins.PinAsync(new(PinTargetType.Collection,collection.Id,PinLocation.Home,DisplayName:collection.Name));ViewModel.ReportStatus($"Pinned {collection.Name} to Home.");}else if(result==ContentDialogResult.Secondary){await AddCollectionRowAsync(collection);}
+        CollectionDefinition? selectedShelf=e.ClickedItem switch{CollectionCardViewModel card=>card.Definition,CollectionDefinition definition=>definition,_=>null};if(selectedShelf is null)return;_shelfFocusOrigin=(sender as GridView)?.ContainerFromItem(e.ClickedItem) as Control;await ShowShelfDetailAsync(selectedShelf,_shelfFocusOrigin);
     }
+    private async Task ShowShelfDetailAsync(CollectionDefinition shelf,Control? focusOrigin=null)
+    {
+        _shelfFocusOrigin=focusOrigin??_shelfFocusOrigin;await CustomizationViewModel.OpenShelfAsync(shelf);ShowShelfDetail();
+    }
+    private void ShowShelfDetail()
+    {
+        CollectionsRoot.Visibility=Visibility.Collapsed;CrossbarCollectionsContent.Visibility=Visibility.Collapsed;ShelfDetailRoot.Visibility=Visibility.Visible;bool manage=CustomizationViewModel.CanManageShelf;ShelfAddItemButton.Visibility=manage?Visibility.Visible:Visibility.Collapsed;ShelfMoveEarlierButton.Visibility=manage?Visibility.Visible:Visibility.Collapsed;ShelfMoveLaterButton.Visibility=manage?Visibility.Visible:Visibility.Collapsed;ShelfRemoveButton.Visibility=manage?Visibility.Visible:Visibility.Collapsed;ShelfBackButton.Focus(FocusState.Programmatic);
+    }
+    private void ShelfBack_Click(object sender,RoutedEventArgs e)
+    {
+        ShelfDetailRoot.Visibility=Visibility.Collapsed;if(_activeLayout==InterfaceLayoutType.ClassicCrossbar)CrossbarCollectionsContent.Visibility=Visibility.Visible;else CollectionsRoot.Visibility=Visibility.Visible;DispatcherQueue.TryEnqueue(()=>_shelfFocusOrigin?.Focus(FocusState.Programmatic));
+    }
+    private async void LifecycleShelf_Click(object sender,RoutedEventArgs e)
+    {
+        if(sender is not Button{Tag:string tag})return;string[] parts=tag.Split(':');if(parts.Length!=2||!Enum.TryParse(parts[1],out ContentLifecycleStatus status))return;bool video=parts[0]=="video";string title=sender is Button{Content:string label}?label:status.ToString();await CustomizationViewModel.OpenLifecycleAsync(video?ContentLifecycleTargetType.GalleryMediaItem:ContentLifecycleTargetType.LibraryItem,status,title,video?"Videos in this queue.":"Games with this progress status.");ShowShelfDetail();
+    }
+    private async void SpecialShelf_Click(object sender,RoutedEventArgs e)
+    {
+        bool favorites=(sender as Button)?.Tag as string=="favorites";await CustomizationViewModel.OpenSpecialShelfAsync(favorites,favorites?"Favorites":"Recently Added");ShowShelfDetail();
+    }
+    private void ShelfSearch_TextChanged(AutoSuggestBox sender,AutoSuggestBoxTextChangedEventArgs args){if(args.Reason==AutoSuggestionBoxTextChangeReason.UserInput)CustomizationViewModel.FilterShelf(sender.Text);}
+    private async void ShelfItem_ItemClick(object sender,ItemClickEventArgs e)
+    {
+        if(e.ClickedItem is not ShelfItemViewModel item||!item.Available)return;if(item.Item.LibraryItem is { } libraryItem)await ViewModel.LaunchAsync(new CardViewModel(libraryItem,libraryItem.ContentType==ContentType.Game?"\uE7FC":"\uECAA"));else if(item.Item.GalleryMediaItem is { } media)await OpenGalleryCardAsync(new GalleryCardViewModel(media,_galleryThumbnails));else if(item.Item.GalleryAlbum is { } album){await CustomizationViewModel.OpenAlbumAsync(album);ShowShelfDetail();}else if(item.Item.NestedShelf is { } nested)await ShowShelfDetailAsync(nested);
+    }
+    private async void ShelfRemove_Click(object sender,RoutedEventArgs e){if(ShelfItemsGrid.SelectedItem is ShelfItemViewModel item){await CustomizationViewModel.RemoveShelfItemAsync(item);ViewModel.ReportStatus($"Removed {item.DisplayName} from the Shelf. The source item was not changed.");}}
+    private async void ShelfMoveEarlier_Click(object sender,RoutedEventArgs e){if(ShelfItemsGrid.SelectedItem is ShelfItemViewModel item)await CustomizationViewModel.MoveShelfItemAsync(item,-1);}
+    private async void ShelfMoveLater_Click(object sender,RoutedEventArgs e){if(ShelfItemsGrid.SelectedItem is ShelfItemViewModel item)await CustomizationViewModel.MoveShelfItemAsync(item,1);}
+    private async void ShelfAddItem_Click(object sender,RoutedEventArgs e)
+    {
+        CollectionDefinition? shelf=CustomizationViewModel.OpenShelf;if(shelf?.CollectionType!=CollectionType.Manual)return;List<ShelfAddCandidate> all=[];all.AddRange((await _library.QueryAsync(new(IncludeHidden:true,MaximumResults:5000))).Select(item=>new ShelfAddCandidate(CollectionTargetType.LibraryItem,item.Id,item.Title,item.ContentType==ContentType.Game?"Game":"App")));all.AddRange((await _galleryPersistence.QueryAsync(new(IncludeHidden:true,IncludeUnavailable:true,MaximumResults:5000))).Select(item=>new ShelfAddCandidate(CollectionTargetType.GalleryMediaItem,item.Id,item.FileName,item.MediaType==GalleryMediaType.Video?"Video":"Photo")));all.AddRange((await _galleryPersistence.GetAlbumsAsync()).Select(item=>new ShelfAddCandidate(CollectionTargetType.GalleryAlbum,item.Id,item.Name,"Album")));all.AddRange((await _collections.GetAsync()).Where(item=>item.Id!=shelf.Id&&!item.Id.StartsWith("auto:",StringComparison.Ordinal)).Select(item=>new ShelfAddCandidate(CollectionTargetType.Collection,item.Id,item.Name,"Shelf")));
+        AutoSuggestBox search=new(){PlaceholderText="Search games, apps, Gallery, albums, and Shelves",MinWidth=480,QueryIcon=new SymbolIcon(Symbol.Find)};ListView choices=new(){ItemsSource=all,DisplayMemberPath="Label",SelectionMode=ListViewSelectionMode.Single,MaxHeight=420};search.TextChanged+=(_,args)=>{if(args.Reason==AutoSuggestionBoxTextChangeReason.UserInput)choices.ItemsSource=all.Where(item=>item.Label.Contains(search.Text,StringComparison.CurrentCultureIgnoreCase)).ToArray();};StackPanel panel=new(){Spacing=10};panel.Children.Add(search);panel.Children.Add(choices);if(await Dialog("Add Item to Shelf",panel,"Add",null,"Cancel").ShowAsync()==ContentDialogResult.Primary&&choices.SelectedItem is ShelfAddCandidate selected){await _collections.AddItemAsync(new(shelf.Id,selected.TargetType,selected.TargetId,0,DateTime.UtcNow));await CustomizationViewModel.OpenShelfAsync(shelf);await CustomizationViewModel.RefreshCollectionsAsync();ViewModel.ReportStatus($"Added {selected.Name} to {shelf.Name}.");}
+    }
+    private sealed record ShelfAddCandidate(CollectionTargetType TargetType,string TargetId,string Name,string Type){public string Label=>$"{Name} · {Type}";}
+
     private async Task AddCollectionRowAsync(CollectionDefinition collection)
     {
         DashboardConfiguration dashboard=await _dashboardConfiguration.GetOrCreateAsync(_layouts.CurrentLayoutId);List<DashboardRowConfiguration> rows=(await _dashboardConfiguration.GetRowsAsync(dashboard.Id)).ToList();DateTime now=DateTime.UtcNow;rows.Add(new(Guid.NewGuid().ToString("N"),dashboard.Id,$"collection-{collection.Id}",collection.Name,collection.CollectionType==CollectionType.Smart?DashboardRowType.SmartCollection:DashboardRowType.ManualCollection,collection.Id,rows.Count,true,18,CardStyle.Wide,CardSize.Medium,true,true,true,true,now,now));await _dashboardConfiguration.SaveRowsAsync(dashboard.Id,rows);await CustomizationViewModel.RefreshPresentationAsync();await ViewModel.RefreshAsync();ViewModel.ReportStatus($"Added {collection.Name} to Home.");
@@ -1224,11 +1281,11 @@ public sealed partial class MainWindow : Window,IDisposable
     }
     private async Task ShowDashboardSettingsAsync()
     {
-        DashboardConfiguration dashboard=await _dashboardConfiguration.GetOrCreateAsync(_layouts.CurrentLayoutId);List<DashboardRowConfiguration> rows=(await _dashboardConfiguration.GetRowsAsync(dashboard.Id)).OrderBy(x=>x.SortOrder).ToList();ComboBox rowBox=new(){Header="Dashboard row",ItemsSource=rows,DisplayMemberPath="DisplayName",SelectedIndex=rows.Count>0?0:-1,MinWidth=420};CheckBox enabled=new(){Content="Show this row"};NumberBox maximum=new(){Header="Maximum items",Minimum=1,Maximum=100,SpinButtonPlacementMode=NumberBoxSpinButtonPlacementMode.Inline};ComboBox style=new(){Header="Card style",ItemsSource=Enum.GetValues<CardStyle>()};ComboBox size=new(){Header="Card size",ItemsSource=Enum.GetValues<CardSize>()};CheckBox title=new(){Content="Show row title"};Button up=new(){Content="Move Up"};Button down=new(){Content="Move Down"};StackPanel move=new(){Orientation=Orientation.Horizontal,Spacing=8};move.Children.Add(up);move.Children.Add(down);StackPanel panel=new(){Spacing=8};foreach(UIElement control in new UIElement[]{rowBox,enabled,maximum,style,size,title,move})panel.Children.Add(control);int current=Math.Max(0,rowBox.SelectedIndex);bool loading=false;void SaveControls(){if(loading||rows.Count==0)return;DashboardRowConfiguration row=rows[current];rows[current]=row with{Enabled=enabled.IsChecked==true,MaximumItems=(int)maximum.Value,CardStyle=style.SelectedItem is CardStyle cs?cs:row.CardStyle,CardSize=size.SelectedItem is CardSize cz?cz:row.CardSize,ShowTitle=title.IsChecked==true};}void LoadControls(){if(rows.Count==0)return;loading=true;DashboardRowConfiguration row=rows[current];enabled.IsChecked=row.Enabled;maximum.Value=row.MaximumItems;style.SelectedItem=row.CardStyle;size.SelectedItem=row.CardSize;title.IsChecked=row.ShowTitle;loading=false;}rowBox.SelectionChanged+=(_,_)=>{SaveControls();current=Math.Max(0,rowBox.SelectedIndex);LoadControls();};void Move(int offset){SaveControls();int target=Math.Clamp(current+offset,0,rows.Count-1);if(target==current)return;DashboardRowConfiguration row=rows[current];rows.RemoveAt(current);rows.Insert(target,row);current=target;rowBox.ItemsSource=null;rowBox.ItemsSource=rows;rowBox.SelectedIndex=current;LoadControls();}up.Click+=(_,_)=>Move(-1);down.Click+=(_,_)=>Move(1);LoadControls();ContentDialogResult result=await Dialog("Customize Dashboard",new ScrollViewer{Content=panel,MaxHeight=600},"Save","Reset Layout","Cancel").ShowAsync();if(result==ContentDialogResult.Secondary){if(await Dialog("Reset this dashboard?",new TextBlock{Text="The selected layout's rows will return to safe defaults. Your library and collections are not changed.",TextWrapping=TextWrapping.Wrap},"Reset",null,"Cancel").ShowAsync()==ContentDialogResult.Primary)await _dashboardConfiguration.ResetAsync(_layouts.CurrentLayoutId);}else if(result==ContentDialogResult.Primary){SaveControls();await _dashboardConfiguration.SaveRowsAsync(dashboard.Id,rows);}else return;await CustomizationViewModel.RefreshPresentationAsync();await ViewModel.RefreshAsync();ViewModel.ReportStatus("Dashboard configuration updated.");
+        DashboardConfiguration dashboard=await _dashboardConfiguration.GetOrCreateAsync(_layouts.CurrentLayoutId);List<DashboardRowConfiguration> rows=(await _dashboardConfiguration.GetRowsAsync(dashboard.Id)).OrderBy(x=>x.SortOrder).ToList();ComboBox rowBox=new(){Header="Dashboard row",ItemsSource=rows,DisplayMemberPath="DisplayName",SelectedIndex=rows.Count>0?0:-1,MinWidth=420};CheckBox enabled=new(){Content="Show this row"};NumberBox maximum=new(){Header="Maximum items",Minimum=1,Maximum=100,SpinButtonPlacementMode=NumberBoxSpinButtonPlacementMode.Inline};ComboBox style=new(){Header="Card style",ItemsSource=Enum.GetValues<CardStyle>()};ComboBox size=new(){Header="Card size",ItemsSource=Enum.GetValues<CardSize>()};CheckBox title=new(){Content="Show row title"};Button up=new(){Content="Move Up"};Button down=new(){Content="Move Down"};StackPanel move=new(){Orientation=Orientation.Horizontal,Spacing=8};move.Children.Add(up);move.Children.Add(down);StackPanel panel=new(){Spacing=8};foreach(UIElement control in new UIElement[]{rowBox,enabled,maximum,style,size,title,move})panel.Children.Add(control);int current=Math.Max(0,rowBox.SelectedIndex);bool loading=false;void SaveControls(){if(loading||rows.Count==0)return;DashboardRowConfiguration row=rows[current];rows[current]=row with{Enabled=enabled.IsChecked==true,MaximumItems=(int)maximum.Value,CardStyle=style.SelectedItem is CardStyle cs?cs:row.CardStyle,CardSize=size.SelectedItem is CardSize cz?cz:row.CardSize,ShowTitle=title.IsChecked==true};}void LoadControls(){if(rows.Count==0)return;loading=true;DashboardRowConfiguration row=rows[current];enabled.IsChecked=row.Enabled;maximum.Value=row.MaximumItems;style.SelectedItem=row.CardStyle;size.SelectedItem=row.CardSize;title.IsChecked=row.ShowTitle;loading=false;}rowBox.SelectionChanged+=(_,_)=>{SaveControls();current=Math.Max(0,rowBox.SelectedIndex);LoadControls();};void Move(int offset){SaveControls();int target=Math.Clamp(current+offset,0,rows.Count-1);if(target==current)return;DashboardRowConfiguration row=rows[current];rows.RemoveAt(current);rows.Insert(target,row);current=target;rowBox.ItemsSource=null;rowBox.ItemsSource=rows;rowBox.SelectedIndex=current;LoadControls();}up.Click+=(_,_)=>Move(-1);down.Click+=(_,_)=>Move(1);LoadControls();ContentDialogResult result=await Dialog("Customize Dashboard",new ScrollViewer{Content=panel,MaxHeight=600},"Save","Reset Layout","Cancel").ShowAsync();if(result==ContentDialogResult.Secondary){if(await Dialog("Reset this dashboard?",new TextBlock{Text="The selected layout's rows will return to safe defaults. Your library and Shelves are not changed.",TextWrapping=TextWrapping.Wrap},"Reset",null,"Cancel").ShowAsync()==ContentDialogResult.Primary)await _dashboardConfiguration.ResetAsync(_layouts.CurrentLayoutId);}else if(result==ContentDialogResult.Primary){SaveControls();await _dashboardConfiguration.SaveRowsAsync(dashboard.Id,rows);}else return;await CustomizationViewModel.RefreshPresentationAsync();await ViewModel.RefreshAsync();ViewModel.ReportStatus("Dashboard configuration updated.");
     }
     private async void InterfaceTransfer_Click(object sender,RoutedEventArgs e)
     {
-        string exported=await _interfaceConfiguration.ExportAsync();TextBox json=new(){Header="Versioned interface configuration JSON",Text=exported,AcceptsReturn=true,TextWrapping=TextWrapping.NoWrap,MinWidth=620,MinHeight=420};ContentDialogResult result=await Dialog("Import / Export Interface",json,"Preview and Import",null,"Close").ShowAsync();if(result!=ContentDialogResult.Primary)return;InterfaceConfigurationPreview preview=await _interfaceConfiguration.PreviewImportAsync(json.Text);string summary=preview.Valid?$"Dashboards: {preview.DashboardCount}\nRows: {preview.RowCount}\nPins: {preview.PinCount}\nCollections: {preview.CollectionCount}\n{string.Join(Environment.NewLine,preview.Warnings)}":"Invalid configuration:\n"+string.Join(Environment.NewLine,preview.Warnings);if(!preview.Valid||await Dialog("Import Preview",new TextBlock{Text=summary,TextWrapping=TextWrapping.Wrap},"Import with Backup",null,"Cancel").ShowAsync()!=ContentDialogResult.Primary)return;InterfaceConfigurationImportResult imported=await _interfaceConfiguration.ImportAsync(json.Text);if(imported.Succeeded){await CustomizationViewModel.InitializeAsync();await ViewModel.RefreshAsync();ViewModel.ReportStatus($"Interface imported. Backup: {imported.BackupId}");}else ViewModel.ReportStatus(string.Join(" ",imported.Errors));
+        string exported=await _interfaceConfiguration.ExportAsync();TextBox json=new(){Header="Versioned interface configuration JSON",Text=exported,AcceptsReturn=true,TextWrapping=TextWrapping.NoWrap,MinWidth=620,MinHeight=420};ContentDialogResult result=await Dialog("Import / Export Interface",json,"Preview and Import",null,"Close").ShowAsync();if(result!=ContentDialogResult.Primary)return;InterfaceConfigurationPreview preview=await _interfaceConfiguration.PreviewImportAsync(json.Text);string summary=preview.Valid?$"Dashboards: {preview.DashboardCount}\nRows: {preview.RowCount}\nPins: {preview.PinCount}\nShelves: {preview.CollectionCount}\n{string.Join(Environment.NewLine,preview.Warnings)}":"Invalid configuration:\n"+string.Join(Environment.NewLine,preview.Warnings);if(!preview.Valid||await Dialog("Import Preview",new TextBlock{Text=summary,TextWrapping=TextWrapping.Wrap},"Import with Backup",null,"Cancel").ShowAsync()!=ContentDialogResult.Primary)return;InterfaceConfigurationImportResult imported=await _interfaceConfiguration.ImportAsync(json.Text);if(imported.Succeeded){await CustomizationViewModel.InitializeAsync();await ViewModel.RefreshAsync();ViewModel.ReportStatus($"Interface imported. Backup: {imported.BackupId}");}else ViewModel.ReportStatus(string.Join(" ",imported.Errors));
     }
 
     private async Task ShowSteamImportAsync()
@@ -1707,16 +1764,50 @@ public sealed partial class MainWindow : Window,IDisposable
         Button backup=new(){Content="Create validated library backup"};
         Button diagnostics=new(){Content="Export redacted diagnostics"};
         Button openBackups=new(){Content="Open backups folder"};
+        Button setupAssistant=new(){Content="Run Setup Assistant"};
         StackPanel actions=new(){Orientation=Orientation.Horizontal,Spacing=8};actions.Children.Add(backup);actions.Children.Add(diagnostics);actions.Children.Add(openBackups);
-        StackPanel panel=new(){Spacing=12,MinWidth=640};panel.Children.Add(startup);panel.Children.Add(status);panel.Children.Add(includeLogs);panel.Children.Add(new TextBlock{Text=$"Local data: {_paths.Root}\nDatabase: {_paths.Database}",TextWrapping=TextWrapping.Wrap,IsTextSelectionEnabled=true,Opacity=.75});panel.Children.Add(actions);
+        StackPanel panel=new(){Spacing=12,MinWidth=640};panel.Children.Add(startup);panel.Children.Add(status);panel.Children.Add(includeLogs);panel.Children.Add(setupAssistant);panel.Children.Add(new TextBlock{Text=$"Local data: {_paths.Root}\nDatabase: {_paths.Database}",TextWrapping=TextWrapping.Wrap,IsTextSelectionEnabled=true,Opacity=.75});panel.Children.Add(actions);
         backup.Click+=async(_,_)=>{try{BackupResult result=await _databaseBackups.CreateAsync(_paths.Database,"manual-settings");status.Text=$"Validated backup created: {result.BackupPath}";}catch(Exception exception){status.Text=$"Backup failed: {exception.Message}";}};
         diagnostics.Click+=async(_,_)=>{try{string exported=await _diagnosticsExport.ExportAsync(_releaseInfo.InformationalVersion,_releaseInfo.Channel.ToString(),new(includeLogs.IsChecked==true,true));status.Text=$"Diagnostics exported: {exported}";}catch(Exception exception){status.Text=$"Diagnostics export failed: {exception.Message}";}};
         openBackups.Click+=(_,_)=>{_paths.EnsureCreated();Process.Start(new ProcessStartInfo(_paths.Backups){UseShellExecute=true});};
+        setupAssistant.Click+=async(_,_)=>{await ShowSetupAssistantAsync();};
         if(await Dialog("Startup, Recovery and Diagnostics",panel,"Save",null,"Close").ShowAsync()!=ContentDialogResult.Primary)return;
         StartupTaskStatus updated=await _startupTask.SetEnabledAsync(startup.IsChecked==true);
         await _settings.SetAsync("Startup.Enabled",updated.Availability==StartupTaskAvailability.Enabled);
         await _settings.SetAsync("Privacy.DiagnosticsExportIncludesLogs",includeLogs.IsChecked==true);
         ViewModel.ReportStatus(updated.Message);
+    }
+
+    private async Task ShowSetupAssistantAsync()
+    {
+        if (_setupAssistant is not null) { _setupAssistant.Activate(); return; }
+        FrontendProfile owner = await _frontendProfiles.GetOwnerAsync();
+        OnboardingState initial = OnboardingState.Create(false, DateTimeOffset.UtcNow) with
+        {
+            Status = OnboardingStatus.InProgress,
+            Preferences = OnboardingState.Create(false, DateTimeOffset.UtcNow).Preferences with
+            {
+                OwnerName = owner.Name,
+                AvatarKey = owner.AvatarKey ?? "owner",
+                Layout = _layouts.CurrentLayoutId switch { "classic-crossbar" => "Classic", "compact-handheld" => "Compact", _ => "Modern" },
+                ThemeId = _themes.CurrentThemeId,
+            },
+        };
+        OnboardingFlowService flow = new(new TransientOnboardingStateStore(initial));
+        TaskCompletionSource<bool> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        _setupAssistant = new(flow, _onboardingCoordinator, initial, _inputService, _inputGlyphs);
+        _setupAssistant.SetupFinished += (_, _) => completion.TrySetResult(true);
+        _setupAssistant.Closed += (_, _) => completion.TrySetResult(false);
+        _setupAssistant.Activate();
+        _setupAssistant.AppWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen);
+        bool applied = await completion.Task;
+        _setupAssistant = null;
+        if (!applied) { ViewModel.ReportStatus("Setup Assistant closed. Its draft was discarded."); return; }
+        FrontendProfile updated = await _frontendProfiles.GetOwnerAsync();
+        _localUserName = updated.Name; _ownerAvatarKey = updated.AvatarKey ?? "owner";
+        ApplyGuestPresentation();
+        await ViewModel.RefreshAsync();
+        ViewModel.ReportStatus("Setup Assistant choices applied.");
     }
 
     private async Task ShowCompatibilityFeedbackAsync()
@@ -1967,6 +2058,7 @@ public sealed partial class MainWindow : Window,IDisposable
             };
             if(launch is not null)capabilities.Add(ItemActionCapabilities.Launch);
             if(item.ContentType==ContentType.Game)capabilities.Add(ItemActionCapabilities.Artwork);
+            if(item.ContentType==ContentType.Game)capabilities.Add(ItemActionCapabilities.LifecycleStatus);
             if(emulated)capabilities.Add(ItemActionCapabilities.EmulatorConfiguration);
             if(!string.IsNullOrWhiteSpace(sourcePath))capabilities.Add(ItemActionCapabilities.OpenLocation);
             if(item.ContentType==ContentType.Application||!string.IsNullOrWhiteSpace(launch?.ProviderId))capabilities.Add(ItemActionCapabilities.ManageInstallation);
@@ -1975,14 +2067,14 @@ public sealed partial class MainWindow : Window,IDisposable
             {
                 TargetType=emulated?ItemContextTargetType.EmulatedGame:item.ContentType==ContentType.Application?ItemContextTargetType.Application:ItemContextTargetType.LibraryItem,
                 TargetId=item.Id,Title=item.Title,IsFavorite=item.Favorite,IsHidden=item.Hidden,IsAvailable=LaunchTargetValidator.Validate(launch) is null,
-                IsProviderManaged=!string.IsNullOrWhiteSpace(launch?.ProviderId),ProviderId=launch?.ProviderId,SourcePath=sourcePath,IsGuest=_guestMode.IsGuest,Capabilities=capabilities,
+                IsProviderManaged=!string.IsNullOrWhiteSpace(launch?.ProviderId),ProviderId=launch?.ProviderId,SourcePath=sourcePath,IsGuest=_guestMode.IsGuest,Capabilities=capabilities,LifecycleStatus=item.ContentType==ContentType.Game?await _contentLifecycle.GetStatusAsync(ContentLifecycleTarget.Library(item.Id)):ContentLifecycleStatus.Unassigned,
                 Options=item.LaunchTargets.Where(value=>value.IsEnabled).ToDictionary(value=>"launchTarget."+value.Id,value=>value.Name,StringComparer.Ordinal),
             };
         }
         if(target is GalleryCardViewModel gallery)
         {
             GalleryMediaItem item=await _galleryPersistence.GetMediaItemAsync(gallery.Id)??gallery.Item;
-            HashSet<string> capabilities=new([ItemActionCapabilities.Launch,ItemActionCapabilities.Details,ItemActionCapabilities.OpenLocation,ItemActionCapabilities.SetBackground,ItemActionCapabilities.PreferredPlayer],StringComparer.Ordinal);if(item.MediaType==GalleryMediaType.Video){capabilities.Add(ItemActionCapabilities.NativeMediaPlayer);capabilities.Add(ItemActionCapabilities.OpenWith);capabilities.Add(ItemActionCapabilities.PlaybackProgress);}return new(){TargetType=ItemContextTargetType.GalleryMedia,TargetId=item.Id,Title=item.FileName,IsFavorite=item.Favorite,IsHidden=item.Hidden,IsAvailable=item.Available,IsGuest=_guestMode.IsGuest,SourcePath=item.FilePath,Capabilities=capabilities,Options=new Dictionary<string,string>{{"mediaType",item.MediaType.ToString()}}};
+            HashSet<string> capabilities=new([ItemActionCapabilities.Launch,ItemActionCapabilities.Details,ItemActionCapabilities.OpenLocation,ItemActionCapabilities.SetBackground,ItemActionCapabilities.PreferredPlayer],StringComparer.Ordinal);if(item.MediaType==GalleryMediaType.Video){capabilities.Add(ItemActionCapabilities.NativeMediaPlayer);capabilities.Add(ItemActionCapabilities.OpenWith);capabilities.Add(ItemActionCapabilities.PlaybackProgress);capabilities.Add(ItemActionCapabilities.LifecycleStatus);}return new(){TargetType=ItemContextTargetType.GalleryMedia,TargetId=item.Id,Title=item.FileName,IsFavorite=item.Favorite,IsHidden=item.Hidden,IsAvailable=item.Available,IsGuest=_guestMode.IsGuest,SourcePath=item.FilePath,Capabilities=capabilities,LifecycleStatus=item.MediaType==GalleryMediaType.Video?await _contentLifecycle.GetStatusAsync(ContentLifecycleTarget.GalleryMedia(item.Id)):ContentLifecycleStatus.Unassigned,Options=new Dictionary<string,string>{{"mediaType",item.MediaType.ToString()}}};
         }
         if(target is CollectionCardViewModel collection)return new(){TargetType=ItemContextTargetType.Collection,TargetId=collection.Id,Title=collection.Name,IsHidden=collection.Definition.Hidden,IsGuest=_guestMode.IsGuest};
         if(target is DiscoverAppCardViewModel discover)return new(){TargetType=discover.Category.Equals("Streaming",StringComparison.OrdinalIgnoreCase)?ItemContextTargetType.StreamingService:ItemContextTargetType.DiscoverApplication,TargetId=discover.Definition.Id,Title=discover.DisplayName,IsFavorite=discover.IsFavorite,IsAvailable=discover.PrimaryAction!="Unavailable",IsGuest=_guestMode.IsGuest};
@@ -1996,6 +2088,10 @@ public sealed partial class MainWindow : Window,IDisposable
         if(selected.RequiresConfirmation&&!await ConfirmItemActionAsync(context,selected))return;
         try
         {
+            if(selected.Id.StartsWith("lifecycle.",StringComparison.Ordinal)&&selected.ExecutionData.TryGetValue("status",out string? rawStatus)&&int.TryParse(rawStatus,out int statusValue)&&Enum.IsDefined((ContentLifecycleStatus)statusValue))
+            {
+                ContentLifecycleTarget lifecycleTarget=context.TargetType==ItemContextTargetType.GalleryMedia?ContentLifecycleTarget.GalleryMedia(context.TargetId):ContentLifecycleTarget.Library(context.TargetId);await _contentLifecycle.SetStatusAsync(lifecycleTarget,(ContentLifecycleStatus)statusValue);_smartCollections.Invalidate();ViewModel.ReportStatus($"Updated {context.Title}'s status.");return;
+            }
             switch(target)
             {
                 case CardViewModel card: await ExecuteLibraryActionAsync(card,context,selected);break;
@@ -2014,7 +2110,7 @@ public sealed partial class MainWindow : Window,IDisposable
         {
             "index.remove" when context.TargetType==ItemContextTargetType.GalleryMedia=>$"Remove {context.Title} from the Gallery index? The original source file will remain on disk.",
             "index.remove"=>$"Remove {context.Title} from NexaStation? The installed program, game files, ROM, and original artwork will remain on disk.",
-            "collection.delete"=>$"Delete the collection {context.Title}? Its contained library and Gallery items will remain.",
+            "collection.delete"=>$"Delete the Shelf {context.Title}? Games, apps, Gallery items, albums, and files will remain.",
             "installation.manage"=>$"Open installation management for {context.Title}? NexaStation will only open the provider or Windows Installed Apps and will not start an uninstaller.",
             _=>action.Description??$"Continue with {action.Label}?",
         };
@@ -2062,8 +2158,8 @@ public sealed partial class MainWindow : Window,IDisposable
     {
         CollectionDefinition[] choices=(await _collections.GetAsync()).Where(value=>value.CollectionType==CollectionType.Manual&&!value.Hidden).ToArray();
         if(choices.Length==0){await CreateCollectionAsync();choices=(await _collections.GetAsync()).Where(value=>value.CollectionType==CollectionType.Manual&&!value.Hidden).ToArray();}
-        ComboBox box=new(){Header="Manual collection",ItemsSource=choices,DisplayMemberPath="Name",SelectedIndex=choices.Length>0?0:-1,MinWidth=360};
-        if(choices.Length>0&&await Dialog("Add to Collection",box,"Add",null,"Cancel").ShowAsync()==ContentDialogResult.Primary&&box.SelectedItem is CollectionDefinition collection){await _collections.AddItemAsync(new(collection.Id,CollectionTargetType.LibraryItem,card.Id,0,DateTime.UtcNow));_smartCollections.Invalidate();await CustomizationViewModel.RefreshCollectionsAsync();ViewModel.ReportStatus($"Added {card.Title} to {collection.Name}.");}
+        ComboBox box=new(){Header="Shelf",ItemsSource=choices,DisplayMemberPath="Name",SelectedIndex=choices.Length>0?0:-1,MinWidth=360};
+        if(choices.Length>0&&await Dialog("Add to Shelf",box,"Add",null,"Cancel").ShowAsync()==ContentDialogResult.Primary&&box.SelectedItem is CollectionDefinition collection){await _collections.AddItemAsync(new(collection.Id,CollectionTargetType.LibraryItem,card.Id,0,DateTime.UtcNow));_smartCollections.Invalidate();await CustomizationViewModel.RefreshCollectionsAsync();ViewModel.ReportStatus($"Added {card.Title} to {collection.Name}.");}
     }
 
     private async Task ExecuteGalleryActionAsync(GalleryCardViewModel card,string actionId)
@@ -2095,8 +2191,8 @@ public sealed partial class MainWindow : Window,IDisposable
             case "collection.pin":await _pins.PinAsync(new(PinTargetType.Collection,collection.Id,PinLocation.Home,DisplayName:collection.Name));await ViewModel.RefreshAsync();ViewModel.ReportStatus($"Pinned {collection.Name} to Home.");break;
             case "collection.home-row":await AddCollectionRowAsync(collection);break;
             case "collection.rename":
-                TextBox name=new(){Header="Collection name",Text=collection.Name,MinWidth=360};if(await Dialog("Rename Collection",name,"Save",null,"Cancel").ShowAsync()==ContentDialogResult.Primary&&!string.IsNullOrWhiteSpace(name.Text)){await _collections.SaveAsync(collection with{Name=name.Text.Trim(),UpdatedAtUtc=DateTime.UtcNow});await CustomizationViewModel.RefreshCollectionsAsync();ViewModel.ReportStatus($"Renamed the collection to {name.Text.Trim()}.");}break;
-            case "collection.delete":await _collections.DeleteAsync(collection.Id);_smartCollections.Invalidate();await CustomizationViewModel.RefreshCollectionsAsync();await ViewModel.RefreshAsync();ViewModel.ReportStatus($"Deleted {collection.Name}. Contained items were not removed.");break;
+                TextBox name=new(){Header="Shelf name",Text=collection.Name,MinWidth=360};if(await Dialog("Rename Shelf",name,"Save",null,"Cancel").ShowAsync()==ContentDialogResult.Primary&&!string.IsNullOrWhiteSpace(name.Text)){await _collections.SaveAsync(collection with{Name=name.Text.Trim(),UpdatedAtUtc=DateTime.UtcNow});await CustomizationViewModel.RefreshCollectionsAsync();ViewModel.ReportStatus($"Renamed the Shelf to {name.Text.Trim()}.");}break;
+            case "collection.delete":await _collections.DeleteAsync(collection.Id);_smartCollections.Invalidate();await CustomizationViewModel.RefreshCollectionsAsync();await ViewModel.RefreshAsync();ViewModel.ReportStatus($"Deleted {collection.Name}. Source items were not removed.");break;
         }
     }
 
@@ -2358,6 +2454,7 @@ public sealed partial class MainWindow : Window,IDisposable
         NavigationSection.Apps => _guestSettings.AllowApplications,
         NavigationSection.Media => _guestSettings.AllowMedia,
         NavigationSection.Gallery => _guestSettings.AllowGallery,
+        NavigationSection.Collections => false,
         NavigationSection.Settings => false,
         _ => true,
     };
@@ -2367,6 +2464,7 @@ public sealed partial class MainWindow : Window,IDisposable
         bool guest = _guestMode.IsGuest;
         string profileName = guest ? _guestMode.ActiveProfile.Name : _localUserName;
         UserInitialsText.Text = UserBadgeFormatter.CreateInitials(profileName);
+        OwnerAvatarBorder.Background = new SolidColorBrush(guest ? Microsoft.UI.Colors.DimGray : _ownerAvatarKey switch { "aurora" => Microsoft.UI.ColorHelper.FromArgb(255,91,224,197), "violet" => Microsoft.UI.ColorHelper.FromArgb(255,167,118,255), "ember" => Microsoft.UI.ColorHelper.FromArgb(255,255,132,84), _ => Microsoft.UI.ColorHelper.FromArgb(255,79,141,255) });
         string profileDescription = guest ? $"{profileName} — Guest profile" : $"{profileName} — Local owner profile";
         ToolTipService.SetToolTip(GuestProfileButton, profileDescription);
         AutomationProperties.SetName(GuestProfileButton, profileDescription);
@@ -2452,6 +2550,12 @@ public sealed partial class MainWindow : Window,IDisposable
         if(GalleryViewerOverlay.Visibility==Visibility.Visible)
         {
             switch(action){case InputAction.NavigateLeft:await _galleryViewer.MoveAsync(-1,Math.Max(1,ViewerSurface.ActualWidth),Math.Max(1,ViewerSurface.ActualHeight));await LoadGalleryViewerAsync();break;case InputAction.NavigateRight:await _galleryViewer.MoveAsync(1,Math.Max(1,ViewerSurface.ActualWidth),Math.Max(1,ViewerSurface.ActualHeight));await LoadGalleryViewerAsync();break;case InputAction.Cancel:await CloseGalleryViewerAsync();break;case InputAction.NavigateUp:_galleryViewer.Zoom(1.15);ApplyGalleryViewerTransform();break;case InputAction.NavigateDown:_galleryViewer.Zoom(0.87);ApplyGalleryViewerTransform();break;}return;
+        }
+        if(ShelfDetailRoot.Visibility==Visibility.Visible)
+        {
+            if(action==InputAction.Cancel){ShelfBack_Click(this,new RoutedEventArgs());return;}
+            if(action==InputAction.Search){ShelfSearchBox.Focus(FocusState.Programmatic);return;}
+            if(action is InputAction.NextSection or InputAction.PreviousSection)return;
         }
         switch (action)
         {
@@ -2562,7 +2666,7 @@ public sealed partial class MainWindow : Window,IDisposable
         _inputContext.SetCurrent(InputContext.TextEntry);Stopwatch timer=Stopwatch.StartNew();
         try
         {
-            TextInputResult result=await _onScreenKeyboard.ShowAsync(new(){Title=$"Search {ViewModel.SelectedSection.Title}",Description="Searches only your local NexaStation library and catalogue.",InitialText=initial,Placeholder="Title, application, collection, platform, or provider",InputType=TextInputType.Search,MaximumLength=160,AllowEmpty=true,SuggestionsSource=SuggestionsSource.AllLocal,SubmitLabel="Search",CancelLabel="Cancel"});
+            TextInputResult result=await _onScreenKeyboard.ShowAsync(new(){Title=$"Search {ViewModel.SelectedSection.Title}",Description="Searches only your local NexaStation library and catalogue.",InitialText=initial,Placeholder="Title, application, Shelf, platform, or provider",InputType=TextInputType.Search,MaximumLength=160,AllowEmpty=true,SuggestionsSource=SuggestionsSource.AllLocal,SubmitLabel="Search",CancelLabel="Cancel"});
             timer.Stop();_logger.Information("OnScreenKeyboardCompleted","The local on-screen keyboard session completed.",new Dictionary<string,object?>{{"Submitted",result.Submitted},{"OpenMilliseconds",timer.Elapsed.TotalMilliseconds},{"Sensitive",false}});
             if(!result.Submitted){origin?.Focus(FocusState.Programmatic);return;}
             string query=result.Text??string.Empty;

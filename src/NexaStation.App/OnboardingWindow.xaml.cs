@@ -1,51 +1,47 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
-using NexaStation.Onboarding;
-using NexaStation.SystemIntegration.Services;
 using NexaStation.Core;
 using NexaStation.Input.Glyphs;
+using NexaStation.Onboarding;
 
 namespace NexaStation.App;
 
-public sealed partial class OnboardingWindow : Window
+public sealed partial class OnboardingWindow : Window, IDisposable
 {
-    private static readonly (string Title, string Description)[] Copy =
+    private static readonly (string Eyebrow, string Title, string Description)[] Copy =
     [
-        ("Welcome to NexaStation", "Set up a private, controller-first home for the games, applications, and local media already on this PC. Nothing is uploaded automatically."),
-        ("Choose your dashboard", "Pick the presentation that feels right. You can change the layout, theme, density, and sounds later in Settings."),
-        ("Balance quality and speed", "Balanced is recommended. The efficient profile reduces artwork memory and motion on lower-resource systems."),
-        ("Choose how you navigate", "Controller navigation is enabled by default. Keyboard and mouse remain available at all times."),
-        ("Connect game providers", "NexaStation can import your local Steam library and organize emulator entries. These steps remain optional."),
-        ("Find installed applications", "Scan local shortcuts and the Windows Apps catalogue. Results stay on this device and can be hidden or edited."),
-        ("Bring in local media", "Gallery indexing is opt-in and uses only folders you choose. Original media is never copied or uploaded."),
-        ("Start with Windows", "This packaged startup task is off by default. Windows may require you to confirm the choice and can disable it later."),
-        ("Privacy and diagnostics", "NexaStation has no mandatory telemetry. Diagnostics are created only when you export them and are redacted before packaging."),
-        ("Review your setup", "Confirm these choices. Provider imports and folder selection continue inside the relevant NexaStation sections."),
+        ("WELCOME", "Make NexaStation yours", "A short, local-only setup for your profile, appearance, games, applications, and media."),
+        ("PROFILE & APPEARANCE", "Choose how it looks and feels", "Confirm a local owner identity, then use the recommended appearance or make deliberate choices."),
+        ("GAMES & APPLICATIONS", "Choose what NexaStation may scan", "Every source needs a Set up or Not now choice. A scan starts only after you choose Set up."),
+        ("GALLERY & SYSTEM", "Choose local folders and system behavior", "Nothing is enabled by silence. Make an explicit choice for Gallery, Pictures, startup, and diagnostic exports."),
+        ("REVIEW & APPLY", "Check everything before it changes", "Review the choices below, confirm them, and watch each setup task finish before entering Home."),
     ];
 
     private readonly OnboardingFlowService _flow;
-    private readonly IStartupTaskService _startupTask;
-    private OnboardingState _state;
+    private readonly OnboardingSetupCoordinator _coordinator;
     private readonly IInputService _input;
+    private readonly Dictionary<string, bool> _sourceReady = new(StringComparer.OrdinalIgnoreCase);
+    private IReadOnlyList<string> _previewNames = [];
+    private OnboardingState _state;
+    private bool _loading;
+    private bool _applying;
+    private bool _applyFinished;
+    private CancellationTokenSource? _applyCancellation;
 
-    public OnboardingWindow(OnboardingFlowService flow, IStartupTaskService startupTask, OnboardingState state, IInputService input, IInputGlyphService glyphs, string? recoveryNotice = null)
+    public OnboardingWindow(OnboardingFlowService flow, OnboardingSetupCoordinator coordinator, OnboardingState state, IInputService input, IInputGlyphService glyphs, string? recoveryNotice = null)
     {
         _flow = flow ?? throw new ArgumentNullException(nameof(flow));
-        _startupTask = startupTask ?? throw new ArgumentNullException(nameof(startupTask));
+        _coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
         _state = state ?? throw new ArgumentNullException(nameof(state));
         _input = input ?? throw new ArgumentNullException(nameof(input));
         InitializeComponent();
         InputHints.Configure(glyphs);
         _input.ActionTriggered += OnInputAction;
         Closed += OnClosed;
-        if (!string.IsNullOrWhiteSpace(recoveryNotice))
-        {
-            RecoveryNotice.Text = recoveryNotice;
-            RecoveryNotice.Visibility = Visibility.Visible;
-        }
-
-        ApplyPreferences(state.Preferences);
+        if (!string.IsNullOrWhiteSpace(recoveryNotice)) ShowNotice(recoveryNotice);
+        ApplyPreferences(_state.Preferences);
         Render();
     }
 
@@ -53,46 +49,79 @@ public sealed partial class OnboardingWindow : Window
 
     private async void NextClicked(object sender, RoutedEventArgs e)
     {
+        if (_applying) return;
         try
         {
             _state = await _flow.SavePreferencesAsync(_state, ReadPreferences());
-            if (_state.CurrentStep == OnboardingStep.Startup)
+            if (_state.CurrentStep == OnboardingStep.ReviewAndApply)
             {
-                StartupTaskStatus status = await _startupTask.SetEnabledAsync(_state.Preferences.StartWithWindows);
-                if (_state.Preferences.StartWithWindows && status.Availability != StartupTaskAvailability.Enabled)
+                if (_applyFinished)
                 {
-                    RecoveryNotice.Text = status.Message;
-                    RecoveryNotice.Visibility = Visibility.Visible;
+                    _state = await _flow.CompleteAsync(_state);
+                    SetupFinished?.Invoke(this, EventArgs.Empty);
+                    Close();
+                    return;
                 }
-            }
-
-            if (_state.CurrentStep == OnboardingStep.Review)
-            {
-                _state = await _flow.CompleteAsync(_state);
-                SetupFinished?.Invoke(this, EventArgs.Empty);
-                Close();
+                await ApplySetupAsync();
                 return;
             }
-
+            if (_state.CurrentStep == OnboardingStep.GamesAndApplications && !SourcesCanContinue(out string sourceMessage))
+            {
+                ShowNotice(sourceMessage);
+                UpdateNavigation();
+                return;
+            }
             _state = await _flow.MoveAsync(_state, 1);
             Render();
+            if (_state.CurrentStep == OnboardingStep.GamesAndApplications) await ResumeSelectedScansAsync();
         }
-        catch (Exception exception)
-        {
-            RecoveryNotice.Text = $"Setup could not save this step: {exception.Message}";
-            RecoveryNotice.Visibility = Visibility.Visible;
-        }
+        catch (Exception exception) { ShowNotice($"Setup could not continue: {exception.Message}"); }
     }
+
+    private async Task ApplySetupAsync()
+    {
+        if (ApplyConfirmation.IsChecked != true) { ShowNotice("Confirm Apply these choices before setup begins."); return; }
+        _applying = true;
+        CancellationTokenSource applyCancellation = new();
+        _applyCancellation = applyCancellation;
+        ApplyProgress.IsActive = true;
+        CancelApplyButton.Visibility = Visibility.Visible;
+        ApplyStatus.Text = "Starting setup…";
+        UpdateNavigation();
+        Progress<string> progress = new(message => DispatcherQueue.TryEnqueue(() => ApplyStatus.Text = message));
+        try
+        {
+            IReadOnlyList<OnboardingTaskResult> results = await _coordinator.ApplyAsync(_state.Preferences, progress, async result =>
+            {
+                List<OnboardingTaskResult> current = _state.Preferences.Results.Where(existing => !string.Equals(existing.Id, result.Id, StringComparison.OrdinalIgnoreCase)).ToList();
+                current.Add(result);
+                _state = await _flow.SavePreferencesAsync(_state, _state.Preferences with { TaskResults = current });
+                TaskResultsList.ItemsSource = current.Select(ResultText).ToArray();
+            }, applyCancellation.Token);
+            _state = await _flow.SavePreferencesAsync(_state, _state.Preferences with { TaskResults = results, ApplyConfirmed = true });
+            TaskResultsList.ItemsSource = results.Select(ResultText).ToArray();
+            bool failed = results.Any(result => result.Status == OnboardingTaskStatus.Failed);
+            AcceptFailures.Visibility = failed ? Visibility.Visible : Visibility.Collapsed;
+            _applyFinished = !failed;
+            ApplyStatus.Text = failed ? "Setup finished with issues. Retry later in the relevant section, or accept them to continue." : "Setup complete. NexaStation is ready.";
+            NextButton.Content = "Go to Home";
+        }
+        catch (OperationCanceledException) { ApplyStatus.Text = "Setup was cancelled. Completed tasks were kept safely."; }
+        finally { _applying = false; ApplyProgress.IsActive = false; CancelApplyButton.Visibility = Visibility.Collapsed; applyCancellation.Dispose(); if (ReferenceEquals(_applyCancellation, applyCancellation)) _applyCancellation = null; UpdateNavigation(); }
+    }
+
+    private void CancelApplyClicked(object sender, RoutedEventArgs e) => _applyCancellation?.Cancel();
 
     private async void BackClicked(object sender, RoutedEventArgs e)
     {
-        _state = await _flow.SavePreferencesAsync(_state, ReadPreferences());
-        _state = await _flow.MoveAsync(_state, -1);
-        Render();
+        if (_applying) return;
+        try { _state = await _flow.SavePreferencesAsync(_state, ReadPreferences()); _state = await _flow.MoveAsync(_state, -1); Render(); }
+        catch (Exception exception) { ShowNotice(exception.Message); }
     }
 
     private async void SkipClicked(object sender, RoutedEventArgs e)
     {
+        if (_applying) return;
         _state = await _flow.SavePreferencesAsync(_state, ReadPreferences());
         _state = await _flow.SkipAsync(_state);
         SetupFinished?.Invoke(this, EventArgs.Empty);
@@ -101,6 +130,222 @@ public sealed partial class OnboardingWindow : Window
 
     private void ExitClicked(object sender, RoutedEventArgs e) => Close();
 
+    private async void RecommendedAppearanceClicked(object sender, RoutedEventArgs e)
+    {
+        _state = await _flow.SavePreferencesAsync(_state, ReadPreferences() with
+        {
+            AppearanceDecision = OnboardingDecisionState.OptedOut,
+            Layout = "Modern", ThemeId = "nexa-dark", PerformanceProfile = "Balanced",
+        });
+        CustomAppearancePanel.Visibility = Visibility.Collapsed;
+        UpdateNavigation();
+    }
+
+    private async void CustomizeAppearanceClicked(object sender, RoutedEventArgs e)
+    {
+        _state = await _flow.SavePreferencesAsync(_state, ReadPreferences() with { AppearanceDecision = OnboardingDecisionState.OptedIn });
+        CustomAppearancePanel.Visibility = Visibility.Visible;
+        UpdateNavigation();
+    }
+
+    private async void KeepAppearanceClicked(object sender, RoutedEventArgs e)
+    {
+        _state = await _flow.SavePreferencesAsync(_state, ReadPreferences() with { AppearanceDecision = OnboardingDecisionState.KeepExisting });
+        CustomAppearancePanel.Visibility = Visibility.Collapsed;
+        UpdateNavigation();
+    }
+
+    private async void SourceDecisionClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string tag }) return;
+        string[] parts = tag.Split(':'); string id = parts[0]; bool optedIn = parts[1] == "in";
+        OnboardingDecisionState decision = parts[1] == "keep" ? OnboardingDecisionState.KeepExisting : optedIn ? OnboardingDecisionState.OptedIn : OnboardingDecisionState.OptedOut;
+        OnboardingPreferences preferences = ReadPreferences();
+        preferences = id switch
+        {
+            "steam" => preferences with { SteamDecision = decision, SteamImportRequested = optedIn },
+            "launchers" => preferences with { OtherLaunchersDecision = decision, OtherLaunchersImportRequested = optedIn },
+            "windows" => preferences with { WindowsAppsDecision = decision, WindowsAppScanRequested = optedIn },
+            "emulation" => preferences with { EmulationDecision = decision, EmulationSetupRequested = optedIn },
+            _ => preferences,
+        };
+        _state = await _flow.SavePreferencesAsync(_state, preferences);
+        if (decision != OnboardingDecisionState.OptedIn)
+        {
+            _sourceReady[id] = true;
+            SetSourceStatus(id, decision == OnboardingDecisionState.KeepExisting ? "Keep existing selected. Nothing will be rescanned." : "Not now selected. Nothing will be scanned or imported.");
+        }
+        else await ScanSourceAsync(id);
+        UpdateNavigation();
+    }
+
+    private async Task ScanSourceAsync(string id)
+    {
+        _sourceReady[id] = false;
+        SetSourceStatus(id, "Scanning approved local locations…");
+        UpdateNavigation();
+        OnboardingSourcePreview preview = await _coordinator.PreviewAsync(id);
+        _sourceReady[id] = preview.Succeeded;
+        _previewNames = preview.CandidateNames;
+        SourcePreviewList.ItemsSource = _previewNames;
+        string names = preview.CandidateNames.Count == 0 ? string.Empty : $" Preview: {string.Join(", ", preview.CandidateNames.Take(5))}{(preview.CandidateNames.Count > 5 ? "…" : string.Empty)}";
+        SetSourceStatus(id, preview.Message + names + (preview.Succeeded ? string.Empty : " Choose Not now or retry Set up."));
+        UpdateNavigation();
+    }
+
+    private void SourceSearchChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+    {
+        if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
+        string term = sender.Text.Trim();
+        SourcePreviewList.ItemsSource = term.Length == 0 ? _previewNames : _previewNames.Where(name => name.Contains(term, StringComparison.OrdinalIgnoreCase)).ToArray();
+    }
+
+    private async Task ResumeSelectedScansAsync()
+    {
+        OnboardingPreferences p = _state.Preferences;
+        foreach ((string id, OnboardingDecisionState decision) in new[] { ("steam", p.SteamDecision), ("launchers", p.OtherLaunchersDecision), ("windows", p.WindowsAppsDecision), ("emulation", p.EmulationDecision) })
+        {
+            if (decision == OnboardingDecisionState.OptedIn && !_sourceReady.ContainsKey(id)) await ScanSourceAsync(id);
+            else if (decision is OnboardingDecisionState.OptedOut or OnboardingDecisionState.KeepExisting) { _sourceReady[id] = true; SetSourceStatus(id, decision == OnboardingDecisionState.KeepExisting ? "Keep existing selected." : "Not now selected."); }
+        }
+    }
+
+    private async void SystemDecisionClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string tag }) return;
+        string[] parts = tag.Split(':'); string id = parts[0]; bool optedIn = parts[1] == "in";
+        OnboardingDecisionState decision = parts[1] == "keep" ? OnboardingDecisionState.KeepExisting : optedIn ? OnboardingDecisionState.OptedIn : OnboardingDecisionState.OptedOut;
+        OnboardingPreferences p = ReadPreferences();
+        p = id switch
+        {
+            "gallery" => p with { GalleryDecision = decision, GallerySetupRequested = decision == OnboardingDecisionState.KeepExisting ? p.GallerySetupRequested : optedIn, PicturesDecision = decision == OnboardingDecisionState.KeepExisting ? OnboardingDecisionState.KeepExisting : optedIn ? p.PicturesDecision : OnboardingDecisionState.OptedOut, IncludePicturesFolder = decision == OnboardingDecisionState.KeepExisting ? p.IncludePicturesFolder : optedIn && p.IncludePicturesFolder },
+            "pictures" => p with { PicturesDecision = decision, IncludePicturesFolder = optedIn },
+            "startup" => p with { StartupDecision = decision, StartWithWindows = decision == OnboardingDecisionState.KeepExisting ? p.StartWithWindows : optedIn },
+            "diagnostics" => p with { DiagnosticsDecision = decision, DiagnosticsConsent = decision == OnboardingDecisionState.KeepExisting ? p.DiagnosticsConsent : optedIn },
+            _ => p,
+        };
+        _state = await _flow.SavePreferencesAsync(_state, p);
+        ApplyPreferences(p);
+        UpdateSystemSummary();
+        UpdateNavigation();
+    }
+
+    private async void PreferenceChanged(object sender, RoutedEventArgs e)
+    {
+        if (_loading || _state.Status != OnboardingStatus.InProgress) return;
+        _state = await _flow.SavePreferencesAsync(_state, ReadPreferences());
+        UpdateNavigation();
+    }
+
+    private async void ApplyConfirmationChanged(object sender, RoutedEventArgs e)
+    {
+        if (_loading || _applying) return;
+        if (AcceptFailures.IsChecked == true) _applyFinished = true;
+        _state = await _flow.SavePreferencesAsync(_state, ReadPreferences() with { ApplyConfirmed = ApplyConfirmation.IsChecked == true });
+        UpdateNavigation();
+    }
+
+    private void Render()
+    {
+        int index = (int)_state.CurrentStep;
+        ProgressBar.Value = index + 1;
+        ProgressText.Text = $"{index + 1} of {Copy.Length}";
+        StepEyebrow.Text = Copy[index].Eyebrow;
+        StepTitle.Text = Copy[index].Title;
+        StepDescription.Text = Copy[index].Description;
+        WelcomePanel.Visibility = _state.CurrentStep == OnboardingStep.Welcome ? Visibility.Visible : Visibility.Collapsed;
+        ProfilePanel.Visibility = _state.CurrentStep == OnboardingStep.ProfileAndAppearance ? Visibility.Visible : Visibility.Collapsed;
+        SourcesPanel.Visibility = _state.CurrentStep == OnboardingStep.GamesAndApplications ? Visibility.Visible : Visibility.Collapsed;
+        GalleryPanel.Visibility = _state.CurrentStep == OnboardingStep.GalleryAndSystem ? Visibility.Visible : Visibility.Collapsed;
+        ReviewPanel.Visibility = _state.CurrentStep == OnboardingStep.ReviewAndApply ? Visibility.Visible : Visibility.Collapsed;
+        if (_state.CurrentStep == OnboardingStep.ReviewAndApply) RenderReview();
+        RecoveryNotice.Visibility = Visibility.Collapsed;
+        UpdateSystemSummary();
+        UpdateNavigation();
+        NextButton.Focus(FocusState.Programmatic);
+    }
+
+    private void RenderReview()
+    {
+        OnboardingPreferences p = ReadPreferences();
+        ReviewSummary.Text = $"Owner: {p.OwnerName} · Avatar: {p.AvatarKey}\nAppearance: {Decision(p.AppearanceDecision)} · {p.Layout} · {p.ThemeId} · {p.PerformanceProfile}\nSteam: {Decision(p.SteamDecision)} · Other launchers: {Decision(p.OtherLaunchersDecision)}\nWindows apps: {Decision(p.WindowsAppsDecision)} · Emulation: {Decision(p.EmulationDecision)}\nGallery: {Decision(p.GalleryDecision)} · Pictures: {Decision(p.PicturesDecision)}\nLaunch at sign-in: {Decision(p.StartupDecision)} · Diagnostic logs: {Decision(p.DiagnosticsDecision)}";
+        ApplyConfirmation.IsChecked = p.ApplyConfirmed;
+        if (p.Results.Count > 0) TaskResultsList.ItemsSource = p.Results.Select(ResultText).ToArray();
+    }
+
+    private void UpdateNavigation()
+    {
+        OnboardingValidationResult validation = OnboardingFlowService.Validate(_state with { Preferences = ReadPreferences() });
+        bool canContinue = validation.CanContinue && !_applying;
+        string message = validation.AccessibleMessage;
+        if (_state.CurrentStep == OnboardingStep.GamesAndApplications && !SourcesCanContinue(out string sourceMessage)) { canContinue = false; message = sourceMessage; }
+        if (_state.CurrentStep == OnboardingStep.ReviewAndApply)
+        {
+            if (_applyFinished) canContinue = AcceptFailures.Visibility != Visibility.Visible || AcceptFailures.IsChecked == true;
+            else canContinue = ApplyConfirmation.IsChecked == true && !_applying;
+        }
+        NextButton.IsEnabled = canContinue;
+        BackButton.IsEnabled = (int)_state.CurrentStep > 0 && !_applying;
+        SkipButton.Visibility = _state.CurrentStep == OnboardingStep.Welcome ? Visibility.Visible : Visibility.Collapsed;
+        NextButton.Content = _state.CurrentStep switch { OnboardingStep.Welcome => "Start setup", OnboardingStep.ReviewAndApply when _applyFinished => "Go to Home", OnboardingStep.ReviewAndApply => "Apply choices", _ => "Continue" };
+        ValidationMessage.Text = canContinue ? string.Empty : message;
+        AutomationProperties.SetHelpText(NextButton, canContinue ? "Continue to the next setup screen." : message);
+    }
+
+    private bool SourcesCanContinue(out string message)
+    {
+        OnboardingPreferences p = ReadPreferences();
+        List<string> pending = [];
+        Add("Steam", "steam", p.SteamDecision); Add("other launchers", "launchers", p.OtherLaunchersDecision); Add("Windows applications", "windows", p.WindowsAppsDecision); Add("emulation", "emulation", p.EmulationDecision);
+        message = pending.Count == 0 ? "All selected scans are ready." : $"Finish or opt out of: {string.Join(", ", pending)}.";
+        return pending.Count == 0;
+        void Add(string name, string id, OnboardingDecisionState decision) { if (decision == OnboardingDecisionState.Unanswered || decision == OnboardingDecisionState.OptedIn && (!_sourceReady.TryGetValue(id, out bool ready) || !ready)) pending.Add(name); }
+    }
+
+    private OnboardingPreferences ReadPreferences()
+    {
+        OnboardingPreferences p = _state.Preferences;
+        return p with
+        {
+            OwnerName = OwnerNameBox.Text.Trim(), AvatarKey = SelectedTag(AvatarChoice, p.AvatarKey),
+            Layout = SelectedTag(LayoutChoice, p.Layout), ThemeId = SelectedTag(ThemeChoice, p.ThemeId), PerformanceProfile = SelectedTag(PerformanceChoice, p.PerformanceProfile),
+            PicturesPrivate = PicturesPrivateChoice.IsChecked == true, ShowPicturesOnHome = PicturesHomeChoice.IsChecked == true,
+            PicturesIncludeSubfolders = PicturesSubfoldersChoice.IsChecked == true, ApplyConfirmed = ApplyConfirmation.IsChecked == true,
+        };
+    }
+
+    private void ApplyPreferences(OnboardingPreferences p)
+    {
+        _loading = true;
+        OwnerNameBox.Text = p.OwnerName; SelectTag(AvatarChoice, p.AvatarKey); SelectTag(LayoutChoice, p.Layout); SelectTag(ThemeChoice, p.ThemeId); SelectTag(PerformanceChoice, p.PerformanceProfile);
+        PicturesPrivateChoice.IsChecked = p.PicturesPrivate; PicturesHomeChoice.IsChecked = p.ShowPicturesOnHome; PicturesSubfoldersChoice.IsChecked = p.PicturesIncludeSubfolders;
+        CustomAppearancePanel.Visibility = p.AppearanceDecision == OnboardingDecisionState.OptedIn ? Visibility.Visible : Visibility.Collapsed;
+        Visibility upgrade = _state.IsUpgrade ? Visibility.Visible : Visibility.Collapsed;
+        KeepAppearanceButton.Visibility = upgrade; KeepSteam.Visibility = upgrade; KeepLaunchers.Visibility = upgrade; KeepWindows.Visibility = upgrade; KeepEmulation.Visibility = upgrade; KeepGallery.Visibility = upgrade; KeepStartup.Visibility = upgrade; KeepDiagnostics.Visibility = upgrade;
+        PicturesDecisionPanel.Visibility = p.GalleryDecision == OnboardingDecisionState.OptedOut ? Visibility.Collapsed : Visibility.Visible;
+        GalleryOptionsPanel.Visibility = p.GalleryDecision == OnboardingDecisionState.OptedIn && p.PicturesDecision == OnboardingDecisionState.OptedIn ? Visibility.Visible : Visibility.Collapsed;
+        ApplyConfirmation.IsChecked = p.ApplyConfirmed;
+        _loading = false;
+    }
+
+    private void UpdateSystemSummary()
+    {
+        OnboardingPreferences p = _state.Preferences;
+        SystemDecisionSummary.Text = $"Gallery: {Decision(p.GalleryDecision)} · Pictures: {Decision(p.PicturesDecision)} · Startup: {Decision(p.StartupDecision)} · Diagnostic logs: {Decision(p.DiagnosticsDecision)}";
+    }
+
+    private void SetSourceStatus(string id, string text)
+    {
+        TextBlock block = id switch { "steam" => SteamStatus, "launchers" => LaunchersStatus, "windows" => WindowsStatus, _ => EmulationStatus };
+        block.Text = text;
+    }
+
+    private void ShowNotice(string message) { RecoveryNotice.Text = message; RecoveryNotice.Visibility = Visibility.Visible; }
+    private static string SelectedTag(ComboBox box, string fallback) => (box.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? fallback;
+    private static void SelectTag(ComboBox box, string tag) => box.SelectedItem = box.Items.OfType<ComboBoxItem>().FirstOrDefault(item => string.Equals(item.Tag?.ToString(), tag, StringComparison.OrdinalIgnoreCase)) ?? box.Items.FirstOrDefault();
+    private static string Decision(OnboardingDecisionState value) => value switch { OnboardingDecisionState.OptedIn => "Set up", OnboardingDecisionState.OptedOut => "Not now", OnboardingDecisionState.KeepExisting => "Keep existing", _ => "No choice" };
+    private static string ResultText(OnboardingTaskResult result) => result.Status == OnboardingTaskStatus.Failed ? $"{result.Id}: failed · {result.Error}" : $"{result.Id}: {result.Status} · {result.Summary}";
+
     private void OnInputAction(object? sender, InputActionEventArgs e) => DispatcherQueue.TryEnqueue(() =>
     {
         if (e.Action == InputAction.Cancel) { if ((int)_state.CurrentStep > 0) BackClicked(this, new RoutedEventArgs()); else Close(); return; }
@@ -108,73 +353,6 @@ public sealed partial class OnboardingWindow : Window
         if (direction is not null) FocusManager.TryMoveFocus(direction.Value);
     });
 
-    private void OnClosed(object sender, WindowEventArgs args) { _input.ActionTriggered -= OnInputAction; Closed -= OnClosed; }
-
-    private void Render()
-    {
-        int index = (int)_state.CurrentStep;
-        ProgressBar.Value = index + 1;
-        ProgressText.Text = $"Step {index + 1} of {Copy.Length}";
-        StepTitle.Text = Copy[index].Title;
-        StepDescription.Text = Copy[index].Description;
-        BackButton.IsEnabled = index > 0;
-        NextButton.Content = index == Copy.Length - 1 ? "Finish" : "Continue";
-        SetChoiceVisibility(_state.CurrentStep);
-        if (_state.CurrentStep == OnboardingStep.Review)
-        {
-            OnboardingPreferences preferences = ReadPreferences();
-            ReviewSummary.Text = $"{preferences.Layout} layout • {preferences.PerformanceProfile} performance\nController: {YesNo(preferences.ControllerEnabled)} • Windows apps: {YesNo(preferences.WindowsAppScanRequested)}\nSteam guide: {YesNo(preferences.SteamImportRequested)} • Emulator guide: {YesNo(preferences.EmulationSetupRequested)}\nGallery guide: {YesNo(preferences.GallerySetupRequested)} • Start with Windows: {YesNo(preferences.StartWithWindows)}";
-        }
-
-        NextButton.Focus(FocusState.Programmatic);
-    }
-
-    private void SetChoiceVisibility(OnboardingStep step)
-    {
-        LayoutChoice.Visibility = step == OnboardingStep.Layout ? Visibility.Visible : Visibility.Collapsed;
-        PerformanceChoice.Visibility = step == OnboardingStep.Performance ? Visibility.Visible : Visibility.Collapsed;
-        ControllerChoice.Visibility = step == OnboardingStep.Input ? Visibility.Visible : Visibility.Collapsed;
-        SteamChoice.Visibility = EmulationChoice.Visibility = step == OnboardingStep.Providers ? Visibility.Visible : Visibility.Collapsed;
-        WindowsAppsChoice.Visibility = step == OnboardingStep.Applications ? Visibility.Visible : Visibility.Collapsed;
-        GalleryChoice.Visibility = PicturesPrivateChoice.Visibility = PicturesHomeChoice.Visibility = PicturesSubfoldersChoice.Visibility = step == OnboardingStep.Gallery ? Visibility.Visible : Visibility.Collapsed;
-        StartupChoice.Visibility = step == OnboardingStep.Startup ? Visibility.Visible : Visibility.Collapsed;
-        DiagnosticsChoice.Visibility = step == OnboardingStep.Privacy ? Visibility.Visible : Visibility.Collapsed;
-        ReviewSummary.Visibility = step == OnboardingStep.Review ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    private OnboardingPreferences ReadPreferences() => new(
-        SelectedTag(LayoutChoice),
-        SelectedTag(PerformanceChoice),
-        ControllerChoice.IsChecked == true,
-        SteamChoice.IsChecked == true,
-        EmulationChoice.IsChecked == true,
-        WindowsAppsChoice.IsChecked == true,
-        GalleryChoice.IsChecked == true,
-        GalleryChoice.IsChecked == true,
-        PicturesPrivateChoice.IsChecked == true,
-        PicturesHomeChoice.IsChecked == true,
-        PicturesSubfoldersChoice.IsChecked == true,
-        StartupChoice.IsChecked == true,
-        DiagnosticsChoice.IsChecked == true);
-
-    private void ApplyPreferences(OnboardingPreferences preferences)
-    {
-        SelectTag(LayoutChoice, preferences.Layout);
-        SelectTag(PerformanceChoice, preferences.PerformanceProfile);
-        ControllerChoice.IsChecked = preferences.ControllerEnabled;
-        SteamChoice.IsChecked = preferences.SteamImportRequested;
-        EmulationChoice.IsChecked = preferences.EmulationSetupRequested;
-        WindowsAppsChoice.IsChecked = preferences.WindowsAppScanRequested;
-        GalleryChoice.IsChecked = preferences.GallerySetupRequested;
-        GalleryChoice.IsChecked = preferences.IncludePicturesFolder;
-        PicturesPrivateChoice.IsChecked = preferences.PicturesPrivate;
-        PicturesHomeChoice.IsChecked = preferences.ShowPicturesOnHome;
-        PicturesSubfoldersChoice.IsChecked = preferences.PicturesIncludeSubfolders;
-        StartupChoice.IsChecked = preferences.StartWithWindows;
-        DiagnosticsChoice.IsChecked = preferences.DiagnosticsConsent;
-    }
-
-    private static string SelectedTag(ComboBox comboBox) => (comboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? string.Empty;
-    private static void SelectTag(ComboBox comboBox, string tag) => comboBox.SelectedItem = comboBox.Items.OfType<ComboBoxItem>().FirstOrDefault(item => string.Equals(item.Tag?.ToString(), tag, StringComparison.OrdinalIgnoreCase)) ?? comboBox.Items[0];
-    private static string YesNo(bool value) => value ? "Yes" : "No";
+    public void Dispose() { _applyCancellation?.Cancel(); _applyCancellation?.Dispose(); _applyCancellation = null; }
+    private void OnClosed(object sender, WindowEventArgs args) { _input.ActionTriggered -= OnInputAction; Closed -= OnClosed; Dispose(); }
 }

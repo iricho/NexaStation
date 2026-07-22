@@ -19,9 +19,17 @@ The project is guided by a few goals:
 
 ## Features
 
+### Deliberate first-time setup
+
+The five-screen Setup Assistant personalizes the local Owner profile, appearance, providers, Windows apps, emulation, Gallery, and startup behavior. Every item requires a clear **Set up** or **Not now** decision, approved sources show a local preview before import, and a final review explains exactly what will change.
+
 ### One library for everything
 
-Add games, Windows applications, web apps, media shortcuts, and custom URIs. Items can be edited, favorited, hidden, grouped into collections, pinned, or given custom artwork. Removing an item only removes it from NexaStation; it never uninstalls the app or deletes the original file.
+Add games, Windows applications, web apps, media shortcuts, and custom URIs. Items can be edited, favorited, hidden, placed on Shelves, pinned, or given custom artwork. Removing an item only removes it from NexaStation; it never uninstalls the app or deletes the original file.
+
+### My Stuff
+
+My Stuff keeps personal organization in one place. Build mixed-content Shelves from games, apps, photos, videos, Gallery albums, and nested Shelves; use Dynamic Shelves for rule-based views; and track game progress or a video queue with clear statuses. Favorites, recently added items, and automatic provider or emulator Shelves stay separate and easy to scan.
 
 ### Game and app discovery
 

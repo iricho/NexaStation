@@ -14,6 +14,11 @@ namespace NexaStation.Infrastructure.Tests;
 
 public sealed class Phase9MigrationCompatibilityTests
 {
+    [Fact]
+    public async Task Schema74ShelfDataMigratesWithUnassignedLifecycleStatus()
+    {
+        await using MigrationFixture fixture=await MigrationFixture.CreateAsync(74);await using(SqliteConnection connection=await fixture.Factory.OpenAsync()){await using SqliteCommand command=connection.CreateCommand();command.CommandText="INSERT INTO Collections(Id,Name,Description,CollectionType,IconKey,CoverAssetPath,ParentCollectionId,SortOrder,Hidden,MatchMode,CreatedAtUtc,UpdatedAtUtc) VALUES('shelf','Saved',NULL,0,NULL,NULL,NULL,0,0,0,$at,$at); INSERT INTO CollectionItems(CollectionId,TargetType,TargetId,SortOrder,AddedAtUtc) VALUES('shelf',0,'legacy-game',0,$at);";command.Parameters.AddWithValue("$at",DateTime.UtcNow.ToString("O",CultureInfo.InvariantCulture));await command.ExecuteNonQueryAsync();}await fixture.Initializer.InitializeAsync();Assert.Equal(1,await fixture.ScalarAsync("SELECT COUNT(*) FROM CollectionItems WHERE CollectionId='shelf';"));Assert.Equal(0,await fixture.ScalarAsync("SELECT COUNT(*) FROM ContentLifecycleStatuses;"));Assert.Equal(75,await fixture.ScalarAsync("SELECT MAX(Version) FROM SchemaMigrations;"));
+    }
     [Theory]
     [InlineData(25)]
     [InlineData(32)]
@@ -22,7 +27,7 @@ public sealed class Phase9MigrationCompatibilityTests
     {
         await using MigrationFixture fixture = await MigrationFixture.CreateAsync(sourceVersion);
         await fixture.Initializer.InitializeAsync();
-        Assert.Equal(74, await fixture.ScalarAsync("SELECT MAX(Version) FROM SchemaMigrations;"));
+        Assert.Equal(75, await fixture.ScalarAsync("SELECT MAX(Version) FROM SchemaMigrations;"));
         Assert.Equal("ok", await fixture.TextAsync("PRAGMA quick_check;"));
     }
 
@@ -85,7 +90,7 @@ public sealed class Phase9MigrationCompatibilityTests
         Assert.Equal(0, await fixture.ScalarAsync("SELECT Enabled FROM Providers WHERE Id='steam';"));
         Assert.Equal("ModernDashboard", await fixture.TextAsync("SELECT Value FROM Settings WHERE Key='Interface.Layout';"));
         Assert.Equal(0, await fixture.ScalarAsync("SELECT Enabled FROM GallerySources WHERE Id='gallery-fixture';"));
-        Assert.Equal(74, await fixture.ScalarAsync("SELECT MAX(Version) FROM SchemaMigrations;"));
+        Assert.Equal(75, await fixture.ScalarAsync("SELECT MAX(Version) FROM SchemaMigrations;"));
     }
 
     private sealed class MigrationFixture : IAsyncDisposable

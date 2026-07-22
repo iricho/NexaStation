@@ -1,5 +1,7 @@
 using NexaStation.MediaPlayer.ExternalPlayers;
 using NexaStation.MediaPlayer.Playback;
+using NexaStation.Core;
+using NexaStation.Domain;
 using Xunit;
 
 namespace NexaStation.MediaPlayer.Tests;
@@ -52,15 +54,39 @@ public sealed class MediaPlayerTests : IDisposable
         Assert.Throws<InvalidOperationException>(() => ExternalMediaPlayerService.RenderArguments("--play", _mediaPath));
     }
 
+    [Theory]
+    [InlineData(ContentLifecycleStatus.Unassigned,ContentLifecycleStatus.Playing)]
+    [InlineData(ContentLifecycleStatus.Backlog,ContentLifecycleStatus.Playing)]
+    [InlineData(ContentLifecycleStatus.Completed,ContentLifecycleStatus.Completed)]
+    [InlineData(ContentLifecycleStatus.Dropped,ContentLifecycleStatus.Dropped)]
+    public async Task NativeGalleryPlaybackStartsWatchingWithoutOverwritingTerminalStates(ContentLifecycleStatus initial,ContentLifecycleStatus expected)
+    {
+        FakeEngine engine=new();MemoryLifecycle lifecycle=new(initial);NexaMediaPlayerService service=new(engine,new MemoryProgress(),new MemoryPreferences(),lifecycle);await service.OpenAsync(Request() with{SourceType=MediaSourceType.GalleryVideo});await service.PlayAsync();Assert.Equal(expected,lifecycle.Status);
+    }
+
+    [Fact]
+    public async Task NaturalGalleryVideoEndMarksWatchingAsWatched()
+    {
+        FakeEngine engine=new();MemoryLifecycle lifecycle=new(ContentLifecycleStatus.Backlog);NexaMediaPlayerService service=new(engine,new MemoryProgress(),new MemoryPreferences(),lifecycle);await service.OpenAsync(Request() with{SourceType=MediaSourceType.GalleryVideo});await service.PlayAsync();engine.Raise(MediaPlaybackState.Ended);for(int i=0;i<20&&lifecycle.Status!=ContentLifecycleStatus.Completed;i++)await Task.Delay(10);Assert.Equal(ContentLifecycleStatus.Completed,lifecycle.Status);
+    }
+
+    [Fact]
+    public async Task NonGalleryAndCancelledPlaybackDoNotInferLifecycleCompletion()
+    {
+        FakeEngine engine=new();MemoryLifecycle lifecycle=new(ContentLifecycleStatus.Backlog);NexaMediaPlayerService service=new(engine,new MemoryProgress(),new MemoryPreferences(),lifecycle);await service.OpenAsync(Request());await service.PlayAsync();engine.Raise(MediaPlaybackState.Ended);await Task.Delay(20);Assert.Equal(ContentLifecycleStatus.Backlog,lifecycle.Status);
+    }
+
     private MediaOpenRequest Request() => new() { MediaItemId = "video", LocalPath = _mediaPath, DisplayTitle = "Video", SourceType = MediaSourceType.LocalVideo };
 
     private sealed class FakeEngine : IMediaPlaybackEngine
     {
-        public event EventHandler<MediaEngineStateChangedEventArgs>? StateChanged { add { } remove { } } public TimeSpan Position { get; private set; }
+        public event EventHandler<MediaEngineStateChangedEventArgs>? StateChanged; public TimeSpan Position { get; private set; }
         public Task<MediaEngineOpenResult> OpenAsync(MediaOpenRequest request, CancellationToken cancellationToken) => Task.FromResult(new MediaEngineOpenResult(TimeSpan.FromMinutes(10), true, [], []));
         public Task PlayAsync(CancellationToken cancellationToken) => Task.CompletedTask; public Task PauseAsync(CancellationToken cancellationToken) => Task.CompletedTask; public Task StopAsync(CancellationToken cancellationToken) { Position = TimeSpan.Zero; return Task.CompletedTask; }
         public Task SeekAsync(TimeSpan position, CancellationToken cancellationToken) { Position = position; return Task.CompletedTask; } public Task SetVolumeAsync(double volume, CancellationToken cancellationToken) => Task.CompletedTask; public Task SetMutedAsync(bool muted, CancellationToken cancellationToken) => Task.CompletedTask; public Task SetPlaybackRateAsync(double rate, CancellationToken cancellationToken) => Task.CompletedTask; public Task SelectAudioTrackAsync(string? trackId, CancellationToken cancellationToken) => Task.CompletedTask; public Task SelectSubtitleTrackAsync(string? trackId, CancellationToken cancellationToken) => Task.CompletedTask; public Task CloseAsync(CancellationToken cancellationToken) => Task.CompletedTask; public void Dispose() { }
+        public void Raise(MediaPlaybackState state)=>StateChanged?.Invoke(this,new(new(state,Position,TimeSpan.FromMinutes(10),0)));
     }
     private sealed class MemoryProgress : IMediaPlaybackProgressStore { public Dictionary<string, MediaPlaybackProgress> Values { get; } = []; public Task<MediaPlaybackProgress?> GetAsync(string id, CancellationToken cancellationToken = default) => Task.FromResult(Values.GetValueOrDefault(id)); public Task SaveAsync(MediaPlaybackProgress value, CancellationToken cancellationToken = default) { Values[value.MediaItemId] = value; return Task.CompletedTask; } public Task DeleteAsync(string id, CancellationToken cancellationToken = default) { Values.Remove(id); return Task.CompletedTask; } }
     private sealed class MemoryPreferences : IMediaPlayerPreferencesStore { public MediaPlayerPreferences Value { get; private set; } = new(ControlsInactivityDelay: TimeSpan.FromSeconds(4)); public Task<MediaPlayerPreferences> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(Value); public Task SaveAsync(MediaPlayerPreferences value, CancellationToken cancellationToken = default) { Value = value; return Task.CompletedTask; } }
+    private sealed class MemoryLifecycle(ContentLifecycleStatus initial):IContentLifecycleService { public ContentLifecycleStatus Status{get;private set;}=initial;public Task<ContentLifecycleStatus> GetStatusAsync(ContentLifecycleTarget target,CancellationToken cancellationToken=default)=>Task.FromResult(Status);public Task<IReadOnlyList<ContentLifecycleEntry>> QueryAsync(ContentLifecycleQuery query,CancellationToken cancellationToken=default)=>Task.FromResult<IReadOnlyList<ContentLifecycleEntry>>([]);public Task SetStatusAsync(ContentLifecycleTarget target,ContentLifecycleStatus status,CancellationToken cancellationToken=default){Status=status;return Task.CompletedTask;}public Task ClearStatusAsync(ContentLifecycleTarget target,CancellationToken cancellationToken=default){Status=ContentLifecycleStatus.Unassigned;return Task.CompletedTask;}public Task<int> ClearStaleTargetsAsync(ContentLifecycleTargetType targetType,IReadOnlyCollection<string> validTargetIds,CancellationToken cancellationToken=default)=>Task.FromResult(0); }
 }

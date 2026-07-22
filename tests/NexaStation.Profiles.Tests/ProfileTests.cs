@@ -8,6 +8,11 @@ namespace NexaStation.Profiles.Tests;
 
 public sealed class ProfileTests
 {
+    [Fact] public async Task OwnerNameAndAvatarCanBePersonalized()
+    {
+        InMemoryFrontendProfileStore store = new(); FrontendProfile owner = await store.GetOwnerAsync(); await store.SaveOwnerAsync(owner with { Name = "Living Room", AvatarKey = "aurora" }); FrontendProfile saved = await store.GetOwnerAsync(); Assert.Equal("Living Room", saved.Name); Assert.Equal("aurora", saved.AvatarKey);
+    }
+
     [Fact] public async Task GuestModeEntersAndClearsTemporaryActivityOnExit()
     {
         InMemoryFrontendProfileStore store = new(); FrontendProfile guest = Guest(); await store.SaveGuestAsync(guest, new() { Enabled = true, ClearActivityOnExit = true }); InMemoryGuestActivityStore activity = new(); GuestModeService service = new(store, activity); Assert.True(await service.EnterAsync()); Assert.True(service.IsGuest); Assert.True(await service.ExitAsync(false)); Assert.False(service.IsGuest); Assert.Equal(1, activity.ClearCount);

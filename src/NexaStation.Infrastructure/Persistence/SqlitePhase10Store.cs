@@ -110,6 +110,24 @@ public sealed class SqlitePhase10Store(ISqliteConnectionFactory factory) :
     }
 
     public async Task<FrontendProfile> GetOwnerAsync(CancellationToken cancellationToken = default) => await GetProfileAsync(FrontendProfileType.Owner, cancellationToken).ConfigureAwait(false) ?? throw new InvalidDataException("The required local Owner frontend profile is missing.");
+    public async Task SaveOwnerAsync(FrontendProfile profile, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        if (profile.ProfileType != FrontendProfileType.Owner) throw new ArgumentException("The saved profile must be the local Owner profile.", nameof(profile));
+        await using SqliteConnection connection = await factory.OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using SqliteCommand command = connection.CreateCommand();
+        command.CommandText = "INSERT INTO FrontendProfiles(Id,Name,ProfileType,AvatarKey,ThemeOverrideId,LayoutOverrideId,IsDefault,PinRequired,Enabled,CreatedAtUtc,UpdatedAtUtc) VALUES($id,$name,0,$avatar,$theme,$layout,1,$pin,$enabled,$created,$updated) ON CONFLICT(Id) DO UPDATE SET Name=excluded.Name,AvatarKey=excluded.AvatarKey,ThemeOverrideId=excluded.ThemeOverrideId,LayoutOverrideId=excluded.LayoutOverrideId,PinRequired=excluded.PinRequired,Enabled=excluded.Enabled,UpdatedAtUtc=excluded.UpdatedAtUtc;";
+        command.Parameters.AddWithValue("$id", profile.Id);
+        command.Parameters.AddWithValue("$name", profile.Name.Trim());
+        command.Parameters.AddWithValue("$avatar", Db(profile.AvatarKey));
+        command.Parameters.AddWithValue("$theme", Db(profile.ThemeOverrideId));
+        command.Parameters.AddWithValue("$layout", Db(profile.LayoutOverrideId));
+        command.Parameters.AddWithValue("$pin", profile.PinRequired);
+        command.Parameters.AddWithValue("$enabled", profile.Enabled);
+        command.Parameters.AddWithValue("$created", Iso(profile.CreatedAtUtc));
+        command.Parameters.AddWithValue("$updated", Iso(profile.UpdatedAtUtc));
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
     public Task<FrontendProfile?> GetGuestAsync(CancellationToken cancellationToken = default) => GetProfileAsync(FrontendProfileType.Guest, cancellationToken);
     private async Task<FrontendProfile?> GetProfileAsync(FrontendProfileType type, CancellationToken cancellationToken)
     {

@@ -1,3 +1,6 @@
+using NexaStation.Core;
+using NexaStation.Domain;
+
 namespace NexaStation.MediaPlayer.Playback;
 
 public sealed class NexaMediaPlayerService : INexaMediaPlayerService, IDisposable
@@ -6,17 +9,19 @@ public sealed class NexaMediaPlayerService : INexaMediaPlayerService, IDisposabl
     private readonly IMediaPlaybackEngine _engine;
     private readonly IMediaPlaybackProgressStore _progress;
     private readonly IMediaPlayerPreferencesStore _preferences;
+    private readonly IContentLifecycleService? _contentLifecycle;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private MediaPlaybackSnapshot _current = new();
     private MediaOpenRequest? _request;
     private DateTimeOffset _lastProgressWrite = DateTimeOffset.MinValue;
     private bool _disposed;
 
-    public NexaMediaPlayerService(IMediaPlaybackEngine engine, IMediaPlaybackProgressStore progress, IMediaPlayerPreferencesStore preferences)
+    public NexaMediaPlayerService(IMediaPlaybackEngine engine, IMediaPlaybackProgressStore progress, IMediaPlayerPreferencesStore preferences, IContentLifecycleService? contentLifecycle = null)
     {
         _engine = engine ?? throw new ArgumentNullException(nameof(engine));
         _progress = progress ?? throw new ArgumentNullException(nameof(progress));
         _preferences = preferences ?? throw new ArgumentNullException(nameof(preferences));
+        _contentLifecycle = contentLifecycle;
         _engine.StateChanged += OnEngineStateChanged;
     }
 
@@ -55,7 +60,7 @@ public sealed class NexaMediaPlayerService : INexaMediaPlayerService, IDisposabl
         finally { _gate.Release(); }
     }
 
-    public Task PlayAsync(CancellationToken cancellationToken = default) => ExecuteAsync(async () => { await _engine.PlayAsync(cancellationToken).ConfigureAwait(false); Update(_current with { State = MediaPlaybackState.Playing, ControlsVisible = true }); });
+    public Task PlayAsync(CancellationToken cancellationToken = default) => ExecuteAsync(async () => { await _engine.PlayAsync(cancellationToken).ConfigureAwait(false); Update(_current with { State = MediaPlaybackState.Playing, ControlsVisible = true }); await MarkWatchingAsync(cancellationToken).ConfigureAwait(false); });
     public Task PauseAsync(CancellationToken cancellationToken = default) => ExecuteAsync(async () => { await _engine.PauseAsync(cancellationToken).ConfigureAwait(false); Update(_current with { State = MediaPlaybackState.Paused, ControlsVisible = true }); await SaveProgressAsync(force: true, cancellationToken).ConfigureAwait(false); });
     public Task StopAsync(CancellationToken cancellationToken = default) => ExecuteAsync(async () => { await _engine.StopAsync(cancellationToken).ConfigureAwait(false); Update(_current with { State = MediaPlaybackState.Ready, Position = TimeSpan.Zero, ControlsVisible = true }); await SaveProgressAsync(force: true, cancellationToken).ConfigureAwait(false); });
     public Task SeekAsync(TimeSpan position, CancellationToken cancellationToken = default) => ExecuteAsync(async () => { if (!_current.CanSeek) return; TimeSpan clamped = Clamp(position, _current.Duration); Update(_current with { State = MediaPlaybackState.Seeking, Position = clamped }); await _engine.SeekAsync(clamped, cancellationToken).ConfigureAwait(false); });
@@ -113,7 +118,42 @@ public sealed class NexaMediaPlayerService : INexaMediaPlayerService, IDisposabl
     {
         Update(_current with { State = e.State.State, Position = e.State.Position, Duration = e.State.Duration, BufferedProgress = e.State.BufferedProgress, ErrorCode = e.State.ErrorCode, ErrorMessage = e.State.ErrorMessage });
         if (e.State.State is MediaPlaybackState.Playing or MediaPlaybackState.Paused) _ = SaveProgressAsync(force: false, CancellationToken.None);
-        if (e.State.State == MediaPlaybackState.Ended) _ = SaveProgressAsync(force: true, CancellationToken.None);
+        if (e.State.State == MediaPlaybackState.Ended)
+        {
+            _ = SaveProgressAsync(force: true, CancellationToken.None);
+            _ = MarkWatchedAsync();
+        }
+    }
+
+    private async Task MarkWatchingAsync(CancellationToken cancellationToken)
+    {
+        if (_contentLifecycle is null || _request?.SourceType != MediaSourceType.GalleryVideo) return;
+        try
+        {
+            ContentLifecycleTarget target = ContentLifecycleTarget.GalleryMedia(_request.MediaItemId);
+            ContentLifecycleStatus status = await _contentLifecycle.GetStatusAsync(target, cancellationToken).ConfigureAwait(false);
+            if (status is ContentLifecycleStatus.Unassigned or ContentLifecycleStatus.Backlog)
+                await _contentLifecycle.SetStatusAsync(target, ContentLifecycleStatus.Playing, cancellationToken).ConfigureAwait(false);
+        }
+        catch(Exception exception) when(exception is not OperationCanceledException)
+        {
+            // Playback is authoritative; optional organization metadata must not interrupt it.
+        }
+    }
+
+    private async Task MarkWatchedAsync()
+    {
+        try
+        {
+            if (_contentLifecycle is null || _request?.SourceType != MediaSourceType.GalleryVideo) return;
+            ContentLifecycleTarget target = ContentLifecycleTarget.GalleryMedia(_request.MediaItemId);
+            if (await _contentLifecycle.GetStatusAsync(target, CancellationToken.None).ConfigureAwait(false) == ContentLifecycleStatus.Playing)
+                await _contentLifecycle.SetStatusAsync(target, ContentLifecycleStatus.Completed, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Lifecycle metadata must never interrupt playback completion.
+        }
     }
 
     private void Update(MediaPlaybackSnapshot snapshot) { _current = snapshot; PlaybackChanged?.Invoke(this, new(snapshot)); }

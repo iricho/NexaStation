@@ -1,4 +1,5 @@
 using NexaStation.Core;
+using NexaStation.Domain;
 using Xunit;
 
 namespace NexaStation.Core.Tests;
@@ -94,6 +95,14 @@ public sealed class ItemContextMenuTests
         Assert.True(manage.RequiresConfirmation);
         Assert.False(manage.IsDestructive);
         Assert.Contains("never runs an uninstall",manage.Description,StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData(ItemContextTargetType.LibraryItem,"Backlog","Playing","Completed")]
+    [InlineData(ItemContextTargetType.GalleryMedia,"Watch Later","Watching","Watched")]
+    public async Task LifecycleActionsUseAdaptiveGameAndVideoLanguage(ItemContextTargetType targetType,string backlog,string playing,string completed)
+    {
+        ItemContextMenuService service=new([new DefaultItemActionProvider()]);ItemContextRequest request=Request(targetType) with{Capabilities=Set(ItemActionCapabilities.LifecycleStatus),LifecycleStatus=ContentLifecycleStatus.Backlog};ItemActionDescriptor status=Assert.Single(await service.BuildAsync(request),action=>action.Id=="lifecycle");Assert.Contains(status.ChildActions,action=>action.Label==backlog);Assert.Contains(status.ChildActions,action=>action.Label==playing);Assert.Contains(status.ChildActions,action=>action.Label==completed);Assert.All(status.ChildActions,action=>Assert.True(action.ExecutionData.ContainsKey("status")));
     }
 
     private static ItemContextRequest Request(ItemContextTargetType type) => new()

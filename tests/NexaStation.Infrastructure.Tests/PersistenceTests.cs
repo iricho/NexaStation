@@ -9,9 +9,9 @@ namespace NexaStation.Infrastructure.Tests;
 
 public sealed class PersistenceTests
 {
-    [Fact] public async Task EmptyDatabaseInitializesCorrectly(){await using TestDb db=await TestDb.Create();Assert.Equal(74,await db.Scalar("SELECT COUNT(*) FROM SchemaMigrations"));}
-    [Fact] public async Task MigrationsRunInOrder(){await using TestDb db=await TestDb.Create();Assert.Equal(string.Join(',',Enumerable.Range(1,74)),await db.Text("SELECT group_concat(Version,',') FROM (SELECT Version FROM SchemaMigrations ORDER BY Version)"));}
-    [Fact] public async Task ReinitializationIsSafe(){await using TestDb db=await TestDb.Create();await db.Initializer.InitializeAsync();Assert.Equal(74,await db.Scalar("SELECT COUNT(*) FROM SchemaMigrations"));}
+    [Fact] public async Task EmptyDatabaseInitializesCorrectly(){await using TestDb db=await TestDb.Create();Assert.Equal(75,await db.Scalar("SELECT COUNT(*) FROM SchemaMigrations"));}
+    [Fact] public async Task MigrationsRunInOrder(){await using TestDb db=await TestDb.Create();Assert.Equal(string.Join(',',Enumerable.Range(1,75)),await db.Text("SELECT group_concat(Version,',') FROM (SELECT Version FROM SchemaMigrations ORDER BY Version)"));}
+    [Fact] public async Task ReinitializationIsSafe(){await using TestDb db=await TestDb.Create();await db.Initializer.InitializeAsync();Assert.Equal(75,await db.Scalar("SELECT COUNT(*) FROM SchemaMigrations"));}
     [Fact] public async Task FailedTransactionRollsBack(){await using TestDb db=await TestDb.Create();await using SqliteConnection c=await db.Factory.OpenAsync();await using SqliteTransaction tx=(SqliteTransaction)await c.BeginTransactionAsync();try{await TestDb.Execute(c,tx,"INSERT INTO Settings VALUES('x','y','z'); INSERT INTO MissingTable VALUES(1);");}catch(SqliteException){await tx.RollbackAsync();}Assert.Equal(0,await db.Scalar("SELECT COUNT(*) FROM Settings WHERE Key='x'"));}
     [Fact] public async Task ForeignKeysAreEnabled(){await using TestDb db=await TestDb.Create();Assert.Equal(1,await db.Scalar("PRAGMA foreign_keys"));}
     [Fact] public async Task DeletingItemRemovesLaunchTargets(){await using TestDb db=await TestDb.Create();LibraryItem item=Item("delete-target");await db.Library.AddAsync(item);await db.Library.DeleteAsync(item.Id);Assert.Equal(0,await db.Scalar("SELECT COUNT(*) FROM LaunchTargets"));}

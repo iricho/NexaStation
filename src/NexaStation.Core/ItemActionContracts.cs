@@ -1,3 +1,5 @@
+using NexaStation.Domain;
+
 namespace NexaStation.Core;
 
 public enum ItemContextTargetType
@@ -39,6 +41,7 @@ public sealed record ItemContextRequest
     public bool IsGuest { get; init; }
     public string? ProviderId { get; init; }
     public string? SourcePath { get; init; }
+    public ContentLifecycleStatus LifecycleStatus { get; init; }
     public IReadOnlySet<string> Capabilities { get; init; } = new HashSet<string>(StringComparer.Ordinal);
     public IReadOnlyDictionary<string, string> Options { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
 }
@@ -156,4 +159,5 @@ public static class ItemActionCapabilities
     public const string NativeMediaPlayer = "native-media-player";
     public const string OpenWith = "open-with";
     public const string PlaybackProgress = "playback-progress";
+    public const string LifecycleStatus = "lifecycle-status";
 }
