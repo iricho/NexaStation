@@ -72,6 +72,7 @@ using NexaStation.Infrastructure.Activity;
 using NexaStation.Infrastructure.Capture;
 using NexaStation.Infrastructure.Ecosystem;
 using NexaStation.Infrastructure.RemotePlay;
+using Velopack.Locators;
 
 namespace NexaStation.App;
 
@@ -88,9 +89,11 @@ public sealed partial class App : Application, IDisposable
     private IStartupHealthService? _startupHealth;
     private StartupStage _startupStage = StartupStage.Starting;
     private bool _safeMode;
+    private readonly ApplicationPackageLocation _packageLocation;
 
     public App()
     {
+        _packageLocation = CapturePackageLocation();
         InitializeComponent();
         UnhandledException += OnUiUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnAppDomainUnhandledException;
@@ -100,7 +103,7 @@ public sealed partial class App : Application, IDisposable
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
         Stopwatch startupTimer = Stopwatch.StartNew();
-        NexaStationPaths paths = new();
+        NexaStationPaths paths = new(new NexaStationPathOptions(PackageLocation: _packageLocation));
         try
         {
             paths.EnsureCreated();
@@ -463,6 +466,17 @@ public sealed partial class App : Application, IDisposable
         {
             _window.NavigateToSection(instanceResult.InitialRoute.Section);
         }
+    }
+
+    private static ApplicationPackageLocation CapturePackageLocation()
+    {
+        if (!VelopackLocator.IsCurrentSet)
+        {
+            return new(false, false, null, AppContext.BaseDirectory);
+        }
+
+        IVelopackLocator locator = VelopackLocator.Current;
+        return new(true, locator.IsPortable, locator.RootAppDir, locator.AppContentDir);
     }
 
     private async Task<bool> RunOnboardingAsync(OnboardingFlowService flow, OnboardingState state, string? recoveryNotice)

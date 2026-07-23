@@ -2,7 +2,7 @@
 
 NexaStation starts with a five-screen, controller-friendly setup for profile and appearance, games and applications, Gallery and system choices, and a final review.
 
-Every setup choice begins unanswered. Continue stays disabled until the user chooses **Set up**, **Not now**, or an equivalent explicit option for every relevant item. Selecting Set up starts a visible local scan and shows a short candidate preview; failed scans must be retried or explicitly skipped. Nothing is scanned merely because a screen was opened.
+Every setup choice begins unselected. Selecting **Set up** starts a visible local scan and shows a short candidate preview. Pressing Continue treats anything left unselected as off, while upgrades keep existing settings unchanged. A selected scan must finish before Continue becomes available, and nothing is scanned merely because a screen was opened.
 
 The review screen lists the chosen appearance, every approved source, every opt-out, and the privacy effect of Gallery and diagnostics choices. Changes begin only after **Apply these choices to this PC** is checked. Progress and failures remain visible, successful tasks are kept, and unresolved failures require explicit acceptance before Home opens.
 

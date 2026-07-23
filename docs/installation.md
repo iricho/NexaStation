@@ -6,7 +6,7 @@ Install the .NET 10 SDK and Visual Studio WinUI/MSIX tooling, then restore, buil
 
 ## Portable ZIP and Windows installer
 
-Normal Windows releases are available as a portable ZIP and a per-user installer. The installer places the application under `%LocalAppData%\Programs\NexaStation` while keeping personal data under `%LocalAppData%\NexaStation`. The portable package contains `portable.flag` and keeps all mutable data inside its extracted `Data` folder.
+Normal Windows releases are produced by Velopack as an installer and a portable ZIP. Installed builds keep personal data under `%LocalAppData%\NexaStation`; portable builds keep mutable data under the stable `Data` folder in the extracted Velopack application root.
 
 See [Building a Windows release](RELEASING.md) for prerequisites, commands, checksums, and verification steps.
 

@@ -5,30 +5,44 @@ namespace NexaStation.Release.Tests;
 public sealed class WindowsPackagingContractTests
 {
     [Fact]
-    public void ReleaseScriptBuildsPortableAndInstallerFromOnePublishDirectory()
+    public void ReleaseScriptBuildsAllVelopackArtifactsFromOnePublishDirectory()
     {
         string script = File.ReadAllText(RepositoryFile("scripts", "Build-Release.ps1"));
 
         Assert.Contains("artifacts", script, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("publish\\$Runtime", script, StringComparison.Ordinal);
-        Assert.Contains("portable.flag", script, StringComparison.Ordinal);
-        Assert.Contains("Compress-Archive", script, StringComparison.Ordinal);
-        Assert.Contains("ISCC.exe", script, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("releases\\$Version", script, StringComparison.Ordinal);
+        Assert.Contains("'tool', 'run', 'vpk', 'pack'", script, StringComparison.Ordinal);
+        Assert.Contains("Iricho.NexaStation", script, StringComparison.Ordinal);
+        Assert.Contains("releases.$channel.json", script, StringComparison.Ordinal);
+        Assert.Contains("assets.$channel.json", script, StringComparison.Ordinal);
         Assert.Contains("SHA256SUMS.txt", script, StringComparison.Ordinal);
         Assert.Contains("NexaStationReleasePackaging=true", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("ISCC.exe", script, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Compress-Archive", script, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void InstallerIsPerUserAndDefensivelyExcludesPortableData()
+    public void RuntimePackageAndToolUseTheSamePinnedVersion()
     {
-        string installer = File.ReadAllText(RepositoryFile("installer", "NexaStation.iss"));
+        string project = File.ReadAllText(RepositoryFile("src", "NexaStation.App", "NexaStation.App.csproj"));
+        string manifest = File.ReadAllText(RepositoryFile(".config", "dotnet-tools.json"));
 
-        Assert.Contains("PrivilegesRequired=lowest", installer, StringComparison.Ordinal);
-        Assert.Contains("DefaultDirName={localappdata}\\Programs\\NexaStation", installer, StringComparison.Ordinal);
-        Assert.Contains("AppId={{9AFC071D-292C-4D3B-921B-31B518BB2606}", installer, StringComparison.Ordinal);
-        Assert.Contains("Excludes: \"portable.flag,Data\\*\"", installer, StringComparison.Ordinal);
-        Assert.Contains("NexaStation.App.exe", installer, StringComparison.Ordinal);
-        Assert.DoesNotContain("{userappdata}\\NexaStation", installer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("<PackageReference Include=\"Velopack\" Version=\"1.2.0\" />", project, StringComparison.Ordinal);
+        Assert.Contains("\"vpk\"", manifest, StringComparison.Ordinal);
+        Assert.Contains("\"version\": \"1.2.0\"", manifest, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void VelopackBootstrapRunsBeforeWinUiInitialization()
+    {
+        string program = File.ReadAllText(RepositoryFile("src", "NexaStation.App", "Program.cs"));
+
+        int bootstrap = program.IndexOf("VelopackApp.Build().Run();", StringComparison.Ordinal);
+        int applicationStart = program.IndexOf("Application.Start", bootstrap, StringComparison.Ordinal);
+        Assert.True(bootstrap >= 0);
+        Assert.True(applicationStart > bootstrap);
+        Assert.DoesNotContain("UpdateManager", program, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -41,6 +55,7 @@ public sealed class WindowsPackagingContractTests
         Assert.Contains("<SelfContained>true</SelfContained>", project, StringComparison.Ordinal);
         Assert.Contains("<PublishTrimmed>false</PublishTrimmed>", project, StringComparison.Ordinal);
         Assert.Contains("<PublishSingleFile>false</PublishSingleFile>", project, StringComparison.Ordinal);
+        Assert.Contains("<PackageReference Include=\"Velopack\" Version=\"1.2.0\" />", project, StringComparison.Ordinal);
         Assert.DoesNotContain("C:\\Users\\", project, StringComparison.OrdinalIgnoreCase);
     }
 

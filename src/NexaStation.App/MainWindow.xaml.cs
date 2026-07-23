@@ -402,13 +402,18 @@ public sealed partial class MainWindow : Window,IDisposable
     public MediaHubViewModel MediaViewModel { get; }
     public CustomizationViewModel CustomizationViewModel{get;}
 
-    private void Section_Click(object sender, RoutedEventArgs e)
+    private async void Section_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { DataContext: DashboardSectionViewModel section })
         {
             if (_guestMode.IsGuest && !IsSectionAllowedForGuest(section.Section))
             {
                 ViewModel.ReportStatus($"{section.Title} is unavailable in Guest Mode.");
+                return;
+            }
+            if (section.Section == NavigationSection.Settings)
+            {
+                await OpenSettingsHomeAsync();
                 return;
             }
             ViewModel.SelectSection(section);

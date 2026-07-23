@@ -13,13 +13,15 @@ public sealed class AppPathIntegrationTests
     {
         string root = Path.Combine(Path.GetTempPath(), "NexaStation-Path-Integration", Guid.NewGuid().ToString("N"));
         string installation = Path.Combine(root, "App");
+        string content = Path.Combine(installation, "current");
         string localAppData = Path.Combine(root, "LocalAppData");
-        Directory.CreateDirectory(installation);
-        await File.WriteAllTextAsync(Path.Combine(installation, "portable.flag"), string.Empty);
+        Directory.CreateDirectory(content);
 
         try
         {
-            NexaStationPaths paths = new(new NexaStationPathOptions(installation, localAppData));
+            NexaStationPaths paths = new(new NexaStationPathOptions(
+                LocalApplicationDataDirectory: localAppData,
+                PackageLocation: new(true, true, installation, content)));
             paths.EnsureCreated();
             SqliteConnectionFactory factory = new(paths);
             await new DatabaseInitializer(factory, new NullLogger()).InitializeAsync();

@@ -1,17 +1,23 @@
 [CmdletBinding()]
 param(
+    [Parameter(Mandatory = $true)]
     [ValidatePattern('^\d+\.\d+\.\d+([\-+][0-9A-Za-z.-]+)?$')]
-    [string]$Version = '0.1.0',
+    [string]$Version,
 
     [ValidateSet('win-x64')]
     [string]$Runtime = 'win-x64',
 
-    [switch]$PortableOnly,
     [switch]$SkipTests
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+$packId = 'Iricho.NexaStation'
+$packTitle = 'NexaStation'
+$packAuthor = 'Iricho'
+$channel = 'win'
+$applicationExecutable = 'NexaStation.App.exe'
 
 function Invoke-DotNet {
     param([Parameter(Mandatory = $true)][string[]]$Arguments)
@@ -40,21 +46,15 @@ function Remove-GeneratedDirectory {
     }
 }
 
-function Find-InnoSetupCompiler {
-    $command = Get-Command 'ISCC.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($null -ne $command) {
-        return $command.Source
-    }
+function Copy-ToCanonicalName {
+    param(
+        [Parameter(Mandatory = $true)][string]$Source,
+        [Parameter(Mandatory = $true)][string]$Destination
+    )
 
-    $candidates = @()
-    if (-not [string]::IsNullOrWhiteSpace(${env:ProgramFiles(x86)})) {
-        $candidates += Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+    if (-not [IO.Path]::GetFullPath($Source).Equals([IO.Path]::GetFullPath($Destination), [StringComparison]::OrdinalIgnoreCase)) {
+        Copy-Item -LiteralPath $Source -Destination $Destination
     }
-    if (-not [string]::IsNullOrWhiteSpace($env:ProgramFiles)) {
-        $candidates += Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe'
-    }
-
-    return $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 }
 
 function Write-Checksums {
@@ -76,17 +76,18 @@ function Write-Checksums {
 $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $solutionPath = Join-Path $repositoryRoot 'NexaStation.sln'
 $projectPath = Join-Path $repositoryRoot 'src\NexaStation.App\NexaStation.App.csproj'
-$installerDefinition = Join-Path $repositoryRoot 'installer\NexaStation.iss'
+$toolManifest = Join-Path $repositoryRoot '.config\dotnet-tools.json'
 $artifactsRoot = Join-Path $repositoryRoot 'artifacts'
 $publishDirectory = Join-Path $artifactsRoot "publish\$Runtime"
-$releaseDirectory = Join-Path $artifactsRoot "release\$Version"
-$portableStage = Join-Path $artifactsRoot "staging\NexaStation-Portable-$Version-$Runtime"
-$applicationExecutable = 'NexaStation.App.exe'
-$portableArchive = Join-Path $releaseDirectory "NexaStation-Portable-$Version-$Runtime.zip"
-$installerOutput = Join-Path $releaseDirectory "NexaStation-Setup-$Version-$Runtime.exe"
+$releaseDirectory = Join-Path $artifactsRoot "releases\$Version"
+$setupPath = Join-Path $releaseDirectory "$packId-Setup.exe"
+$portablePath = Join-Path $releaseDirectory "$packId-Portable.zip"
+$fullPackagePath = Join-Path $releaseDirectory "$packId-$Version-full.nupkg"
+$releasesPath = Join-Path $releaseDirectory "releases.$channel.json"
+$assetsPath = Join-Path $releaseDirectory "assets.$channel.json"
 $checksumsPath = Join-Path $releaseDirectory 'SHA256SUMS.txt'
 
-foreach ($requiredPath in @($solutionPath, $projectPath, $installerDefinition)) {
+foreach ($requiredPath in @($solutionPath, $projectPath, $toolManifest)) {
     if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
         throw "Required release input was not found: $requiredPath"
     }
@@ -106,102 +107,102 @@ $numericVersion = $numericParts -join '.'
 
 Remove-GeneratedDirectory -Path $publishDirectory -ArtifactsRoot $artifactsRoot
 Remove-GeneratedDirectory -Path $releaseDirectory -ArtifactsRoot $artifactsRoot
-Remove-GeneratedDirectory -Path $portableStage -ArtifactsRoot $artifactsRoot
 New-Item -ItemType Directory -Path $publishDirectory -Force | Out-Null
 New-Item -ItemType Directory -Path $releaseDirectory -Force | Out-Null
 
-Write-Host "Restoring NexaStation dependencies..."
-Invoke-DotNet @('restore', $solutionPath)
-Invoke-DotNet @('restore', $projectPath, '-r', $Runtime, '-p:Platform=x64', '-p:NexaStationReleasePackaging=true', '-p:WindowsPackageType=None')
-
-if (-not $SkipTests) {
-    Write-Host 'Running the solution test suite...'
-    Invoke-DotNet @('test', $solutionPath, '-c', 'Release', '--no-restore', '-m:1', '-v:minimal')
-}
-
-Write-Host "Publishing the self-contained $Runtime application..."
-Invoke-DotNet @(
-    'publish', $projectPath,
-    '-c', 'Release',
-    '-r', $Runtime,
-    '-p:Platform=x64',
-    '-p:NexaStationReleasePackaging=true',
-    '-p:WindowsPackageType=None',
-    '-p:SelfContained=true',
-    '-p:PublishTrimmed=false',
-    '-p:PublishSingleFile=false',
-    '-p:AppxPackageSigningEnabled=false',
-    "-p:Version=$Version",
-    "-p:InformationalVersion=$Version",
-    "-p:AssemblyVersion=$numericVersion",
-    "-p:FileVersion=$numericVersion",
-    '--no-restore',
-    '--output', $publishDirectory
-)
-
-$publishedExecutable = Join-Path $publishDirectory $applicationExecutable
-if (-not (Test-Path -LiteralPath $publishedExecutable -PathType Leaf)) {
-    throw "Publish completed without the expected executable: $publishedExecutable"
-}
-if (Test-Path -LiteralPath (Join-Path $publishDirectory 'portable.flag')) {
-    throw 'portable.flag must not exist in the installer source.'
-}
-if (Test-Path -LiteralPath (Join-Path $publishDirectory 'Data')) {
-    throw 'The base publish output must not contain a writable Data directory.'
-}
-
+Push-Location $repositoryRoot
 try {
-    New-Item -ItemType Directory -Path $portableStage -Force | Out-Null
-    Copy-Item -Path (Join-Path $publishDirectory '*') -Destination $portableStage -Recurse -Force
-    New-Item -ItemType File -Path (Join-Path $portableStage 'portable.flag') -Force | Out-Null
-    New-Item -ItemType Directory -Path (Join-Path $portableStage 'Data') -Force | Out-Null
+    Write-Host 'Restoring the pinned Velopack tool and NexaStation dependencies...'
+    Invoke-DotNet @('tool', 'restore')
+    Invoke-DotNet @('restore', $solutionPath)
+    Invoke-DotNet @('restore', $projectPath, '-r', $Runtime, '-p:Platform=x64', '-p:NexaStationReleasePackaging=true', '-p:WindowsPackageType=None')
 
-    Write-Host 'Creating the portable archive...'
-    Compress-Archive -Path (Join-Path $portableStage '*') -DestinationPath $portableArchive -CompressionLevel Optimal
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
-    $portableZip = [IO.Compression.ZipFile]::Open($portableArchive, [IO.Compression.ZipArchiveMode]::Update)
-    try {
-        if ($null -eq $portableZip.GetEntry('Data/')) {
-            $null = $portableZip.CreateEntry('Data/')
+    if (-not $SkipTests) {
+        Write-Host 'Running the complete solution test suite...'
+        Invoke-DotNet @('test', $solutionPath, '-c', 'Release', '--no-restore', '-m:1', '-v:minimal')
+    }
+
+    Write-Host "Publishing the self-contained $Runtime application..."
+    Invoke-DotNet @(
+        'publish', $projectPath,
+        '-c', 'Release',
+        '-r', $Runtime,
+        '-p:Platform=x64',
+        '-p:NexaStationReleasePackaging=true',
+        '-p:WindowsPackageType=None',
+        '-p:SelfContained=true',
+        '-p:PublishTrimmed=false',
+        '-p:PublishSingleFile=false',
+        '-p:AppxPackageSigningEnabled=false',
+        "-p:Version=$Version",
+        "-p:InformationalVersion=$Version",
+        "-p:AssemblyVersion=$numericVersion",
+        "-p:FileVersion=$numericVersion",
+        '--no-restore',
+        '--output', $publishDirectory
+    )
+
+    $publishedExecutable = Join-Path $publishDirectory $applicationExecutable
+    $requiredPublishedFiles = @(
+        $publishedExecutable,
+        (Join-Path $publishDirectory 'coreclr.dll'),
+        (Join-Path $publishDirectory 'Microsoft.WindowsAppRuntime.dll'),
+        (Join-Path $publishDirectory 'NexaStation.UI.Themes.Nexa.dll'),
+        (Join-Path $publishDirectory 'NexaStation.UI.Themes.Crossbar.dll'),
+        (Join-Path $publishDirectory 'NexaStation.Input.dll'),
+        (Join-Path $publishDirectory 'NexaStation.MediaPlayer.dll'),
+        (Join-Path $publishDirectory 'NexaStation.Providers.Steam.dll'),
+        (Join-Path $publishDirectory 'NexaStation.Providers.Emulation.dll'),
+        (Join-Path $publishDirectory 'NexaStation.Providers.WindowsApps.dll'),
+        (Join-Path $publishDirectory 'Assets\InputGlyphs\PlayStation\ps-cross.png')
+    )
+    foreach ($requiredPublishedFile in $requiredPublishedFiles) {
+        if (-not (Test-Path -LiteralPath $requiredPublishedFile -PathType Leaf)) {
+            throw "Publish completed without a required runtime file: $requiredPublishedFile"
         }
     }
-    finally {
-        $portableZip.Dispose()
+
+    Write-Host 'Creating the Velopack installer, portable bundle, package, and release metadata...'
+    $velopackArguments = @(
+        'tool', 'run', 'vpk', 'pack',
+        '--outputDir', $releaseDirectory,
+        '--channel', $channel,
+        '--runtime', $Runtime,
+        '--packId', $packId,
+        '--packVersion', $Version,
+        '--packDir', $publishDirectory,
+        '--packAuthors', $packAuthor,
+        '--packTitle', $packTitle,
+        '--mainExe', $applicationExecutable
+    )
+    $icon = Get-ChildItem -LiteralPath (Join-Path $repositoryRoot 'src\NexaStation.App') -File -Filter '*.ico' -Recurse | Select-Object -First 1
+    if ($null -eq $icon) {
+        Write-Warning 'No NexaStation .ico file was found; Velopack will use its default installer icon.'
     }
+    else {
+        $velopackArguments += @('--icon', $icon.FullName)
+    }
+    Invoke-DotNet $velopackArguments
 }
 finally {
-    Remove-GeneratedDirectory -Path $portableStage -ArtifactsRoot $artifactsRoot
+    Pop-Location
 }
 
-if ($PortableOnly) {
-    Write-Checksums -Files @($portableArchive) -Destination $checksumsPath
-    Write-Host ''
-    Write-Host 'Portable release complete:'
-    Write-Host "  $portableArchive"
-    Write-Host "  $checksumsPath"
-    exit 0
+$generatedSetups = @(Get-ChildItem -LiteralPath $releaseDirectory -File -Filter '*Setup.exe')
+$generatedPortables = @(Get-ChildItem -LiteralPath $releaseDirectory -File -Filter '*Portable.zip')
+if ($generatedSetups.Count -ne 1 -or $generatedPortables.Count -ne 1) {
+    throw "Velopack must produce exactly one installer and one portable bundle. Found $($generatedSetups.Count) installer(s) and $($generatedPortables.Count) portable bundle(s)."
 }
+$generatedSetup = $generatedSetups[0]
+$generatedPortable = $generatedPortables[0]
+Copy-ToCanonicalName -Source $generatedSetup.FullName -Destination $setupPath
+Copy-ToCanonicalName -Source $generatedPortable.FullName -Destination $portablePath
 
-$innoCompiler = Find-InnoSetupCompiler
-if ([string]::IsNullOrWhiteSpace($innoCompiler)) {
-    Write-Checksums -Files @($portableArchive) -Destination $checksumsPath
-    Write-Warning "Portable ZIP created at '$portableArchive', but Inno Setup 6 (ISCC.exe) was not found. Install Inno Setup 6 or use -PortableOnly."
-    throw 'The installer was skipped because Inno Setup 6 is not installed.'
-}
-
-Write-Host 'Compiling the per-user installer...'
-& $innoCompiler "/DAppVersion=$Version" "/DAppNumericVersion=$numericVersion" "/DSourceDir=$publishDirectory" "/DOutputDir=$releaseDirectory" $installerDefinition
-if ($LASTEXITCODE -ne 0) {
-    throw "Inno Setup failed with exit code $LASTEXITCODE."
-}
-if (-not (Test-Path -LiteralPath $installerOutput -PathType Leaf)) {
-    throw "Inno Setup completed without the expected installer: $installerOutput"
-}
-
-Write-Checksums -Files @($portableArchive, $installerOutput) -Destination $checksumsPath
+$releaseFiles = @($setupPath, $portablePath, $fullPackagePath, $releasesPath, $assetsPath)
+Write-Checksums -Files $releaseFiles -Destination $checksumsPath
 
 Write-Host ''
-Write-Host "NexaStation $Version release complete:"
-Write-Host "  Portable: $portableArchive"
-Write-Host "  Installer: $installerOutput"
-Write-Host "  Checksums: $checksumsPath"
+Write-Host "NexaStation $Version Velopack release complete:"
+foreach ($file in $releaseFiles + $checksumsPath) {
+    Write-Host "  $file"
+}

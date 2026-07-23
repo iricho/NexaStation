@@ -21,7 +21,7 @@ The project is guided by a few goals:
 
 ### Deliberate first-time setup
 
-The five-screen Setup Assistant personalizes the local Owner profile, appearance, providers, Windows apps, emulation, Gallery, and startup behavior. Every item requires a clear **Set up** or **Not now** decision, approved sources show a local preview before import, and a final review explains exactly what will change.
+The five-screen Setup Assistant personalizes the local Owner profile, appearance, providers, Windows apps, emulation, Gallery, and startup behavior. Choose only the features you want; continuing leaves unselected options off. Approved sources show a local preview before import, and a final review explains exactly what will change.
 
 ### One library for everything
 

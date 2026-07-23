@@ -31,7 +31,15 @@ public interface INexaStationPaths
 public sealed record NexaStationPathOptions(
     string? InstallationDirectory = null,
     string? LocalApplicationDataDirectory = null,
-    string? RootOverride = null);
+    string? RootOverride = null,
+    ApplicationPackageLocation? PackageLocation = null,
+    bool AllowDeveloperPortableMarker = true);
+
+public sealed record ApplicationPackageLocation(
+    bool IsInitialized,
+    bool IsPortable,
+    string? RootAppDirectory,
+    string? AppContentDirectory);
 
 public sealed class NexaStationPaths : INexaStationPaths
 {
@@ -43,14 +51,26 @@ public sealed class NexaStationPaths : INexaStationPaths
     public NexaStationPaths(NexaStationPathOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        InstallationDirectory = NormalizeDirectory(options.InstallationDirectory ?? AppContext.BaseDirectory);
+        ApplicationPackageLocation? package = options.PackageLocation;
+        string contentDirectory = package is { IsInitialized: true } && !string.IsNullOrWhiteSpace(package.AppContentDirectory)
+            ? package.AppContentDirectory
+            : options.InstallationDirectory ?? AppContext.BaseDirectory;
+        InstallationDirectory = NormalizeDirectory(contentDirectory);
         PortableMarkerPath = Path.Combine(InstallationDirectory, "portable.flag");
-        IsPortable = options.RootOverride is null && File.Exists(PortableMarkerPath);
+        bool velopackPortable = package is { IsInitialized: true, IsPortable: true } &&
+            !string.IsNullOrWhiteSpace(package.RootAppDirectory);
+        bool developerMarkerPortable = package is not { IsInitialized: true } &&
+            options.AllowDeveloperPortableMarker &&
+            File.Exists(PortableMarkerPath);
+        IsPortable = options.RootOverride is null && (velopackPortable || developerMarkerPortable);
 
         string localApplicationData = NormalizeDirectory(options.LocalApplicationDataDirectory ??
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+        string portableRoot = velopackPortable
+            ? NormalizeDirectory(package!.RootAppDirectory!)
+            : InstallationDirectory;
         Root = NormalizeDirectory(options.RootOverride ?? (IsPortable
-            ? Path.Combine(InstallationDirectory, "Data")
+            ? Path.Combine(portableRoot, "Data")
             : Path.Combine(localApplicationData, "NexaStation")));
 
         // Preserve the established installed layout while making the portable Data folder

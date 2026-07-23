@@ -19,17 +19,24 @@ public sealed class OnboardingTests : IDisposable
     }
 
     [Fact]
-    public async Task ContinueIsBlockedUntilEveryChoiceOnScreenIsAnswered()
+    public async Task ContinueDefaultsUnansweredChoicesToNo()
     {
         OnboardingFlowService flow = new(CreateStore());
         OnboardingState state = await flow.StartOrResumeAsync(false);
         state = await flow.MoveAsync(state, 1);
-        InvalidOperationException profileError = await Assert.ThrowsAsync<InvalidOperationException>(() => flow.MoveAsync(state, 1));
-        Assert.Contains("appearance", profileError.Message, StringComparison.OrdinalIgnoreCase);
-        state = await flow.SavePreferencesAsync(state, state.Preferences with { AppearanceDecision = OnboardingDecisionState.OptedOut });
         state = await flow.MoveAsync(state, 1);
-        InvalidOperationException sourceError = await Assert.ThrowsAsync<InvalidOperationException>(() => flow.MoveAsync(state, 1));
-        Assert.Contains("Steam", sourceError.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(OnboardingDecisionState.OptedOut, state.Preferences.AppearanceDecision);
+        state = await flow.MoveAsync(state, 1);
+        Assert.Equal(OnboardingDecisionState.OptedOut, state.Preferences.SteamDecision);
+        Assert.Equal(OnboardingDecisionState.OptedOut, state.Preferences.OtherLaunchersDecision);
+        Assert.Equal(OnboardingDecisionState.OptedOut, state.Preferences.WindowsAppsDecision);
+        Assert.Equal(OnboardingDecisionState.OptedOut, state.Preferences.EmulationDecision);
+        state = await flow.MoveAsync(state, 1);
+        Assert.Equal(OnboardingStep.ReviewAndApply, state.CurrentStep);
+        Assert.Equal(OnboardingDecisionState.OptedOut, state.Preferences.GalleryDecision);
+        Assert.Equal(OnboardingDecisionState.OptedOut, state.Preferences.PicturesDecision);
+        Assert.Equal(OnboardingDecisionState.OptedOut, state.Preferences.StartupDecision);
+        Assert.Equal(OnboardingDecisionState.OptedOut, state.Preferences.DiagnosticsDecision);
     }
 
     [Fact]
@@ -51,6 +58,22 @@ public sealed class OnboardingTests : IDisposable
         OnboardingState resumed = await flow.StartOrResumeAsync(false);
         Assert.Equal(OnboardingStep.GalleryAndSystem, resumed.CurrentStep);
         Assert.Equal(OnboardingDecisionState.OptedOut, resumed.Preferences.SteamDecision);
+    }
+
+    [Fact]
+    public async Task UpgradeDefaultsKeepExistingSettings()
+    {
+        OnboardingFlowService flow = new(CreateStore());
+        OnboardingState state = await flow.StartOrResumeAsync(true);
+        state = await flow.MoveAsync(state, 1);
+        state = await flow.MoveAsync(state, 1);
+        Assert.Equal(OnboardingDecisionState.KeepExisting, state.Preferences.AppearanceDecision);
+        state = await flow.MoveAsync(state, 1);
+        Assert.Equal(OnboardingDecisionState.KeepExisting, state.Preferences.SteamDecision);
+        Assert.Equal(OnboardingDecisionState.KeepExisting, state.Preferences.EmulationDecision);
+        state = await flow.MoveAsync(state, 1);
+        Assert.Equal(OnboardingDecisionState.KeepExisting, state.Preferences.GalleryDecision);
+        Assert.Equal(OnboardingDecisionState.KeepExisting, state.Preferences.StartupDecision);
     }
 
     [Fact]
@@ -89,13 +112,13 @@ public sealed class OnboardingTests : IDisposable
     }
 
     [Fact]
-    public void GalleryAndPicturesRemainIndependentDecisions()
+    public void UnansweredGalleryChoicesDoNotBlockContinue()
     {
         OnboardingState state = OnboardingState.Create(false, DateTimeOffset.UtcNow) with { Status = OnboardingStatus.InProgress, CurrentStep = OnboardingStep.GalleryAndSystem };
         state = state with { Preferences = state.Preferences with { GalleryDecision = OnboardingDecisionState.OptedIn } };
         OnboardingValidationResult result = OnboardingFlowService.Validate(state);
-        Assert.False(result.CanContinue);
-        Assert.Contains("Pictures folder", result.MissingChoices);
+        Assert.True(result.CanContinue);
+        Assert.Empty(result.MissingChoices);
     }
 
     [Fact]

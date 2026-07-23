@@ -14,8 +14,8 @@ public sealed partial class OnboardingWindow : Window, IDisposable
     [
         ("WELCOME", "Make NexaStation yours", "A short, local-only setup for your profile, appearance, games, applications, and media."),
         ("PROFILE & APPEARANCE", "Choose how it looks and feels", "Confirm a local owner identity, then use the recommended appearance or make deliberate choices."),
-        ("GAMES & APPLICATIONS", "Choose what NexaStation may scan", "Every source needs a Set up or Not now choice. A scan starts only after you choose Set up."),
-        ("GALLERY & SYSTEM", "Choose local folders and system behavior", "Nothing is enabled by silence. Make an explicit choice for Gallery, Pictures, startup, and diagnostic exports."),
+        ("GAMES & APPLICATIONS", "Choose what NexaStation may scan", "Select only the sources you want to set up. Anything left unselected is skipped."),
+        ("GALLERY & SYSTEM", "Choose local folders and system behavior", "Enable only the options you want. Anything left unselected stays off."),
         ("REVIEW & APPLY", "Check everything before it changes", "Review the choices below, confirm them, and watch each setup task finish before entering Home."),
     ];
 
@@ -173,7 +173,7 @@ public sealed partial class OnboardingWindow : Window, IDisposable
         if (decision != OnboardingDecisionState.OptedIn)
         {
             _sourceReady[id] = true;
-            SetSourceStatus(id, decision == OnboardingDecisionState.KeepExisting ? "Keep existing selected. Nothing will be rescanned." : "Not now selected. Nothing will be scanned or imported.");
+            SetSourceStatus(id, decision == OnboardingDecisionState.KeepExisting ? "Keep existing selected. Nothing will be rescanned." : "This source will not be scanned or imported.");
         }
         else await ScanSourceAsync(id);
         UpdateNavigation();
@@ -189,7 +189,7 @@ public sealed partial class OnboardingWindow : Window, IDisposable
         _previewNames = preview.CandidateNames;
         SourcePreviewList.ItemsSource = _previewNames;
         string names = preview.CandidateNames.Count == 0 ? string.Empty : $" Preview: {string.Join(", ", preview.CandidateNames.Take(5))}{(preview.CandidateNames.Count > 5 ? "…" : string.Empty)}";
-        SetSourceStatus(id, preview.Message + names + (preview.Succeeded ? string.Empty : " Choose Not now or retry Set up."));
+        SetSourceStatus(id, preview.Message + names + (preview.Succeeded ? string.Empty : " Retry Set up or choose not to scan this source."));
         UpdateNavigation();
     }
 
@@ -206,7 +206,7 @@ public sealed partial class OnboardingWindow : Window, IDisposable
         foreach ((string id, OnboardingDecisionState decision) in new[] { ("steam", p.SteamDecision), ("launchers", p.OtherLaunchersDecision), ("windows", p.WindowsAppsDecision), ("emulation", p.EmulationDecision) })
         {
             if (decision == OnboardingDecisionState.OptedIn && !_sourceReady.ContainsKey(id)) await ScanSourceAsync(id);
-            else if (decision is OnboardingDecisionState.OptedOut or OnboardingDecisionState.KeepExisting) { _sourceReady[id] = true; SetSourceStatus(id, decision == OnboardingDecisionState.KeepExisting ? "Keep existing selected." : "Not now selected."); }
+            else if (decision is OnboardingDecisionState.OptedOut or OnboardingDecisionState.KeepExisting) { _sourceReady[id] = true; SetSourceStatus(id, decision == OnboardingDecisionState.KeepExisting ? "Keep existing selected." : "This source will not be scanned."); }
         }
     }
 
@@ -268,7 +268,7 @@ public sealed partial class OnboardingWindow : Window, IDisposable
     private void RenderReview()
     {
         OnboardingPreferences p = ReadPreferences();
-        ReviewSummary.Text = $"Owner: {p.OwnerName} · Avatar: {p.AvatarKey}\nAppearance: {Decision(p.AppearanceDecision)} · {p.Layout} · {p.ThemeId} · {p.PerformanceProfile}\nSteam: {Decision(p.SteamDecision)} · Other launchers: {Decision(p.OtherLaunchersDecision)}\nWindows apps: {Decision(p.WindowsAppsDecision)} · Emulation: {Decision(p.EmulationDecision)}\nGallery: {Decision(p.GalleryDecision)} · Pictures: {Decision(p.PicturesDecision)}\nLaunch at sign-in: {Decision(p.StartupDecision)} · Diagnostic logs: {Decision(p.DiagnosticsDecision)}";
+        ReviewSummary.Text = $"Owner: {p.OwnerName} · Avatar: {p.AvatarKey}\nAppearance: {AppearanceDecision(p.AppearanceDecision)} · {p.Layout} · {p.ThemeId} · {p.PerformanceProfile}\nSteam: {SourceDecision(p.SteamDecision)} · Other launchers: {SourceDecision(p.OtherLaunchersDecision)}\nWindows apps: {SourceDecision(p.WindowsAppsDecision)} · Emulation: {SourceDecision(p.EmulationDecision)}\nGallery: {SystemDecision(p.GalleryDecision)} · Pictures: {SystemDecision(p.PicturesDecision)}\nLaunch at sign-in: {SystemDecision(p.StartupDecision)} · Diagnostic logs: {SystemDecision(p.DiagnosticsDecision)}";
         ApplyConfirmation.IsChecked = p.ApplyConfirmed;
         if (p.Results.Count > 0) TaskResultsList.ItemsSource = p.Results.Select(ResultText).ToArray();
     }
@@ -297,9 +297,9 @@ public sealed partial class OnboardingWindow : Window, IDisposable
         OnboardingPreferences p = ReadPreferences();
         List<string> pending = [];
         Add("Steam", "steam", p.SteamDecision); Add("other launchers", "launchers", p.OtherLaunchersDecision); Add("Windows applications", "windows", p.WindowsAppsDecision); Add("emulation", "emulation", p.EmulationDecision);
-        message = pending.Count == 0 ? "All selected scans are ready." : $"Finish or opt out of: {string.Join(", ", pending)}.";
+        message = pending.Count == 0 ? "All selected scans are ready." : $"Wait for the selected scans: {string.Join(", ", pending)}.";
         return pending.Count == 0;
-        void Add(string name, string id, OnboardingDecisionState decision) { if (decision == OnboardingDecisionState.Unanswered || decision == OnboardingDecisionState.OptedIn && (!_sourceReady.TryGetValue(id, out bool ready) || !ready)) pending.Add(name); }
+        void Add(string name, string id, OnboardingDecisionState decision) { if (decision == OnboardingDecisionState.OptedIn && (!_sourceReady.TryGetValue(id, out bool ready) || !ready)) pending.Add(name); }
     }
 
     private OnboardingPreferences ReadPreferences()
@@ -331,7 +331,7 @@ public sealed partial class OnboardingWindow : Window, IDisposable
     private void UpdateSystemSummary()
     {
         OnboardingPreferences p = _state.Preferences;
-        SystemDecisionSummary.Text = $"Gallery: {Decision(p.GalleryDecision)} · Pictures: {Decision(p.PicturesDecision)} · Startup: {Decision(p.StartupDecision)} · Diagnostic logs: {Decision(p.DiagnosticsDecision)}";
+        SystemDecisionSummary.Text = $"Gallery: {SystemDecision(p.GalleryDecision)} · Pictures: {SystemDecision(p.PicturesDecision)} · Startup: {SystemDecision(p.StartupDecision)} · Diagnostic logs: {SystemDecision(p.DiagnosticsDecision)}";
     }
 
     private void SetSourceStatus(string id, string text)
@@ -343,7 +343,9 @@ public sealed partial class OnboardingWindow : Window, IDisposable
     private void ShowNotice(string message) { RecoveryNotice.Text = message; RecoveryNotice.Visibility = Visibility.Visible; }
     private static string SelectedTag(ComboBox box, string fallback) => (box.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? fallback;
     private static void SelectTag(ComboBox box, string tag) => box.SelectedItem = box.Items.OfType<ComboBoxItem>().FirstOrDefault(item => string.Equals(item.Tag?.ToString(), tag, StringComparison.OrdinalIgnoreCase)) ?? box.Items.FirstOrDefault();
-    private static string Decision(OnboardingDecisionState value) => value switch { OnboardingDecisionState.OptedIn => "Set up", OnboardingDecisionState.OptedOut => "Not now", OnboardingDecisionState.KeepExisting => "Keep existing", _ => "No choice" };
+    private static string AppearanceDecision(OnboardingDecisionState value) => value switch { OnboardingDecisionState.OptedIn => "Customized", OnboardingDecisionState.OptedOut => "Recommended", OnboardingDecisionState.KeepExisting => "Keep existing", _ => "No choice" };
+    private static string SourceDecision(OnboardingDecisionState value) => value switch { OnboardingDecisionState.OptedIn => "Set up", OnboardingDecisionState.OptedOut => "Not scanned", OnboardingDecisionState.KeepExisting => "Keep existing", _ => "No choice" };
+    private static string SystemDecision(OnboardingDecisionState value) => value switch { OnboardingDecisionState.OptedIn => "Enabled", OnboardingDecisionState.OptedOut => "Disabled", OnboardingDecisionState.KeepExisting => "Keep existing", _ => "No choice" };
     private static string ResultText(OnboardingTaskResult result) => result.Status == OnboardingTaskStatus.Failed ? $"{result.Id}: failed · {result.Error}" : $"{result.Id}: {result.Status} · {result.Summary}";
 
     private void OnInputAction(object? sender, InputActionEventArgs e) => DispatcherQueue.TryEnqueue(() =>

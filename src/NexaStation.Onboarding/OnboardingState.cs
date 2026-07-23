@@ -88,8 +88,8 @@ public sealed record OnboardingLoadResult(OnboardingState State, bool RecoveredF
 public sealed record OnboardingValidationResult(bool CanContinue, IReadOnlyList<string> MissingChoices)
 {
     public string AccessibleMessage => CanContinue
-        ? "All required choices are complete."
-        : $"Choose an option for: {string.Join(", ", MissingChoices)}.";
+        ? "Ready to continue."
+        : $"Complete: {string.Join(", ", MissingChoices)}.";
 }
 
 public interface IOnboardingStateStore
@@ -239,6 +239,7 @@ public sealed class OnboardingFlowService(IOnboardingStateStore store)
     public static OnboardingValidationResult Validate(OnboardingState state)
     {
         ArgumentNullException.ThrowIfNull(state);
+        state = ResolveUnansweredForCurrentStep(state);
         OnboardingPreferences p = state.Preferences;
         List<string> missing = state.CurrentStep switch
         {
@@ -268,6 +269,7 @@ public sealed class OnboardingFlowService(IOnboardingStateStore store)
         EnsureInProgress(state);
         if (direction > 0)
         {
+            state = ResolveUnansweredForCurrentStep(state);
             OnboardingValidationResult validation = Validate(state);
             if (!validation.CanContinue) throw new InvalidOperationException(validation.AccessibleMessage);
         }
@@ -299,6 +301,48 @@ public sealed class OnboardingFlowService(IOnboardingStateStore store)
 
     private static List<string> Missing(params (string Name, OnboardingDecisionState Decision)[] values) =>
         values.Where(value => value.Decision == OnboardingDecisionState.Unanswered).Select(value => value.Name).ToList();
+
+    private static OnboardingState ResolveUnansweredForCurrentStep(OnboardingState state)
+    {
+        OnboardingPreferences p = state.Preferences;
+        OnboardingDecisionState fallback = state.IsUpgrade
+            ? OnboardingDecisionState.KeepExisting
+            : OnboardingDecisionState.OptedOut;
+        OnboardingDecisionState Resolve(OnboardingDecisionState decision) =>
+            decision == OnboardingDecisionState.Unanswered ? fallback : decision;
+
+        OnboardingPreferences resolved = state.CurrentStep switch
+        {
+            OnboardingStep.ProfileAndAppearance => p with
+            {
+                AppearanceDecision = Resolve(p.AppearanceDecision),
+            },
+            OnboardingStep.GamesAndApplications => p with
+            {
+                SteamDecision = Resolve(p.SteamDecision),
+                OtherLaunchersDecision = Resolve(p.OtherLaunchersDecision),
+                WindowsAppsDecision = Resolve(p.WindowsAppsDecision),
+                EmulationDecision = Resolve(p.EmulationDecision),
+                SteamImportRequested = p.SteamDecision == OnboardingDecisionState.Unanswered && !state.IsUpgrade ? false : p.SteamImportRequested,
+                OtherLaunchersImportRequested = p.OtherLaunchersDecision == OnboardingDecisionState.Unanswered && !state.IsUpgrade ? false : p.OtherLaunchersImportRequested,
+                WindowsAppScanRequested = p.WindowsAppsDecision == OnboardingDecisionState.Unanswered && !state.IsUpgrade ? false : p.WindowsAppScanRequested,
+                EmulationSetupRequested = p.EmulationDecision == OnboardingDecisionState.Unanswered && !state.IsUpgrade ? false : p.EmulationSetupRequested,
+            },
+            OnboardingStep.GalleryAndSystem => p with
+            {
+                GalleryDecision = Resolve(p.GalleryDecision),
+                PicturesDecision = Resolve(p.PicturesDecision),
+                StartupDecision = Resolve(p.StartupDecision),
+                DiagnosticsDecision = Resolve(p.DiagnosticsDecision),
+                GallerySetupRequested = p.GalleryDecision == OnboardingDecisionState.Unanswered && !state.IsUpgrade ? false : p.GallerySetupRequested,
+                IncludePicturesFolder = p.PicturesDecision == OnboardingDecisionState.Unanswered && !state.IsUpgrade ? false : p.IncludePicturesFolder,
+                StartWithWindows = p.StartupDecision == OnboardingDecisionState.Unanswered && !state.IsUpgrade ? false : p.StartWithWindows,
+                DiagnosticsConsent = p.DiagnosticsDecision == OnboardingDecisionState.Unanswered && !state.IsUpgrade ? false : p.DiagnosticsConsent,
+            },
+            _ => p,
+        };
+        return state with { Preferences = resolved };
+    }
 
     private static void EnsureInProgress(OnboardingState state)
     {
