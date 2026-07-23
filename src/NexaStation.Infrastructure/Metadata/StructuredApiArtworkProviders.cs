@@ -33,13 +33,15 @@ public sealed class SteamGridDbArtworkProvider(HttpClient http, IProviderCredent
 
     public async Task<IReadOnlyList<ArtworkMatchCandidate>> SearchAsync(ArtworkSearchRequest request, CancellationToken cancellationToken = default)
     {
-        if(!string.IsNullOrWhiteSpace(request.Identity.SteamAppId))
+        (string Platform, string Id, string IdentityKey)? external = ExternalIdentity(request.Identity);
+        if(external is { } exactIdentity)
         {
-            using JsonDocument? exact=await GetAsync($"games/steam/{Uri.EscapeDataString(request.Identity.SteamAppId)}",cancellationToken).ConfigureAwait(false);
+            using JsonDocument? exact=await GetAsync($"games/{exactIdentity.Platform}/{Uri.EscapeDataString(exactIdentity.Id)}",cancellationToken).ConfigureAwait(false);
             if(exact is not null&&exact.RootElement.TryGetProperty("data",out JsonElement game)&&game.ValueKind==JsonValueKind.Object&&game.TryGetProperty("id",out JsonElement gameId))
             {
                 string name=game.TryGetProperty("name",out JsonElement gameName)?gameName.GetString()??request.Identity.OriginalTitle:request.Identity.OriginalTitle;
-                return [new(Id,gameId.ToString(),name,request.Identity.PlatformId,request.Identity.Region,null,ExternalIds:new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase){{"steam",request.Identity.SteamAppId}})];
+                return [new(Id,gameId.ToString(),name,request.Identity.PlatformId??"pc",request.Identity.Region,null,
+                    ExternalIds:new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase){{exactIdentity.IdentityKey,exactIdentity.Id}})];
             }
         }
         string title = request.SearchTitle ?? request.Identity.OriginalTitle;
@@ -105,6 +107,13 @@ public sealed class SteamGridDbArtworkProvider(HttpClient http, IProviderCredent
     }
 
     private static DateTimeOffset? Retry(HttpResponseMessage response) => response.Headers.RetryAfter?.Date ?? (response.Headers.RetryAfter?.Delta is { } delay ? DateTimeOffset.UtcNow + delay : null);
+    private static (string Platform, string Id, string IdentityKey)? ExternalIdentity(GameIdentity identity)
+    {
+        if (!string.IsNullOrWhiteSpace(identity.SteamAppId)) return ("steam", identity.SteamAppId, "steam");
+        if (string.Equals(identity.ProviderId, "epic", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(identity.ProviderItemId)) return ("egs", identity.ProviderItemId, "epic");
+        return null;
+    }
     private static bool TryHttps(JsonElement value, string property, out Uri? uri) { uri = null; return value.TryGetProperty(property, out JsonElement element) && Uri.TryCreate(element.GetString(), UriKind.Absolute, out uri) && uri.Scheme == Uri.UriSchemeHttps; }
     private static int? Number(JsonElement value, string property) => value.TryGetProperty(property, out JsonElement element) && element.TryGetInt32(out int result) ? result : null;
     private static string? Mime(JsonElement value) => value.TryGetProperty("mime", out JsonElement element) ? element.GetString() : null;

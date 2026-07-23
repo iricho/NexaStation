@@ -205,6 +205,7 @@ public sealed partial class App : Application, IDisposable
         services.AddSingleton<IArtworkJobService,SqliteArtworkJobService>();
         services.AddSingleton<IArtworkJobProcessor,ArtworkJobProcessor>();
         services.AddSingleton<IArtworkJobPreflightService,ArtworkJobPreflightService>();
+        services.AddSingleton<IAutomaticImportArtworkService,AutomaticImportArtworkService>();
         services.AddSingleton<IArtworkProviderConnectionTester,ArtworkProviderConnectionTester>();
         services.AddSingleton<IArtworkReviewService,ArtworkReviewService>();
         services.AddSingleton<IMetadataProvenanceStore,SqliteMetadataProvenanceStore>();
@@ -212,6 +213,7 @@ public sealed partial class App : Application, IDisposable
         services.AddSingleton<LocalArtworkProvider>(provider=>new LocalArtworkProvider([Path.Combine(paths.Data,"Artwork","Import")],provider.GetRequiredService<IRemoteArtworkDownloader>()));
         services.AddSingleton<IArtworkProvider>(provider=>provider.GetRequiredService<LocalArtworkProvider>());
         services.AddSingleton<IArtworkProvider,SteamPublicArtworkProvider>();
+        services.AddSingleton<IArtworkProvider,GogPublicArtworkProvider>();
         services.AddSingleton<IArtworkProvider,Ps2CoverArtworkProvider>();
         services.AddSingleton<IArtworkProvider,ScreenScraperArtworkProvider>();
         services.AddSingleton<IArtworkProvider,SteamGridDbArtworkProvider>();

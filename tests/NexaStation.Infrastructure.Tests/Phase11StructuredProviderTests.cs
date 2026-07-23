@@ -38,6 +38,35 @@ public sealed class Phase11StructuredProviderTests
     }
 
     [Fact]
+    public async Task SteamGridDbUsesExactEpicCatalogIdentity()
+    {
+        const string catalogId="0f691c8b-57ff-45e3-a063-f807d2365c26";
+        SequenceHandler handler=new("""{"success":true,"data":{"id":84,"name":"Epic Example"}}""");
+        using RemoteArtworkDownloader downloader=new(new HttpClient(handler));SteamGridDbArtworkProvider provider=new(new HttpClient(handler),new FakeCredentials(),new PassThroughLimits(),downloader);
+        GameIdentity identity=new("item",ContentType.Game,"epic example","Epic Example","pc","epic",catalogId,Confidence:IdentityConfidence.VerifiedProviderId);
+        ArtworkMatchCandidate match=Assert.Single(await provider.SearchAsync(new(identity)));
+        Assert.Equal(catalogId,match.ExternalIds!["epic"]);
+        Assert.Contains($"games/egs/{catalogId}",handler.Requests[0].Uri,StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GogPublicArtworkUsesExactProductIdForCoverAndHero()
+    {
+        SequenceHandler handler=new(
+            """{"id":1207658924,"title":"The Witcher: Enhanced Edition","images":{"background":"//images.gog.test/background.jpg"}}""",
+            """{"products":[{"id":"1207658924","title":"The Witcher: Enhanced Edition","coverVertical":"https://images.gog.test/cover.jpg","galaxyBackgroundImage":"https://images.gog.test/hero.jpg"}]}""");
+        using RemoteArtworkDownloader downloader=new(new HttpClient(handler));GogPublicArtworkProvider provider=new(new HttpClient(handler),downloader);
+        GameIdentity identity=new("item",ContentType.Game,"the witcher enhanced edition","The Witcher: Enhanced Edition","pc","gog","1207658924",Confidence:IdentityConfidence.VerifiedProviderId);
+        ArtworkMatchCandidate match=Assert.Single(await provider.SearchAsync(new(identity)));
+        IReadOnlyList<RemoteArtworkAsset> assets=await provider.GetAssetsAsync(new(match.ProviderGameId,[ArtworkKind.CoverPortrait,ArtworkKind.HeroBackground]));
+        Assert.Equal("1207658924",match.ExternalIds!["gog"]);
+        Assert.Contains(assets,value=>value.Type==ArtworkKind.CoverPortrait&&value.DownloadUri.AbsoluteUri=="https://images.gog.test/cover.jpg");
+        Assert.Contains(assets,value=>value.Type==ArtworkKind.HeroBackground&&value.DownloadUri.AbsoluteUri=="https://images.gog.test/hero.jpg");
+        Assert.Contains("api.gog.com/products/1207658924",handler.Requests[0].Uri,StringComparison.Ordinal);
+        Assert.Contains("catalog.gog.com/v1/catalog",handler.Requests[1].Uri,StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task TheGamesDbMapsStructuredSearchArtworkAndMetadata()
     {
         SequenceHandler handler=new(

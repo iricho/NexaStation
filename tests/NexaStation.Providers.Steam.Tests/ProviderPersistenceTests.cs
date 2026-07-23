@@ -24,6 +24,24 @@ public sealed class ProviderPersistenceTests
     [Fact] public async Task PreviewRecognizesAlreadyImported(){await using Context c=await Context.CreateAsync();await c.Persistence.ImportAsync("steam",[new(Item())]);ProviderImportService service=new(new ProviderRegistry([new FakeProvider()]),c.Persistence);ImportPreview preview=await service.CreatePreviewAsync("steam",Scan(Item()));Assert.Equal(ImportCandidateStatus.AlreadyImported,Assert.Single(preview.Candidates).Status);}
     [Fact] public async Task PreviewFindsPossibleTitleDuplicate(){await using Context c=await Context.CreateAsync();await c.Library.AddAsync(LibraryItem.Create("Fictional Starship",ContentType.Game,new LaunchTarget(LaunchType.Executable,Environment.ProcessPath)));ProviderImportService service=new(new ProviderRegistry([new FakeProvider()]),c.Persistence);ImportPreview preview=await service.CreatePreviewAsync("steam",Scan(Item()));Assert.Equal(ImportCandidateStatus.PossibleDuplicate,Assert.Single(preview.Candidates).Status);}
 
+    [Theory]
+    [InlineData("epic")]
+    [InlineData("gog")]
+    public async Task EpicAndGogImportsQueueMissingArtwork(string providerId)
+    {
+        await using Context c=await Context.CreateAsync();RecordingAutomaticArtwork artwork=new();
+        ProviderImportService service=new(new ProviderRegistry([new FakeProvider(providerId)]),c.Persistence,artwork,new FakeLogger());
+        DiscoveredLibraryItem item=Item() with
+        {
+            ProviderId=providerId,
+            ProviderItemId=providerId=="epic"?"0f691c8b-57ff-45e3-a063-f807d2365c26":"1207658924",
+            LaunchUri=new Uri(providerId=="epic"?"com.epicgames.launcher://apps/example?action=launch":"goggalaxy://openGameView/1207658924"),
+            ProviderLibrarySourceId=null,
+        };
+        ProviderImportResult result=await service.ImportAsync(providerId,[new(item)]);
+        Assert.Equal(1,result.Summary.Added);Assert.Equal(providerId,artwork.ProviderId);Assert.Single(artwork.LibraryItemIds);
+    }
+
     [Fact] public void LibraryIdentityIsStableAcrossCaseAndTrailingSeparators()
     {
         string root=SteamRoot;
@@ -94,13 +112,19 @@ public sealed class ProviderPersistenceTests
     private static async Task<int> SourceRowCountAsync(Context c){await using SqliteConnection db=await c.Factory.OpenAsync();await using SqliteCommand command=db.CreateCommand();command.CommandText="SELECT COUNT(*) FROM ProviderLibrarySources;";return Convert.ToInt32(await command.ExecuteScalarAsync(),System.Globalization.CultureInfo.InvariantCulture);}
     private static async Task InsertLibrarySourceAsync(Context c,string id,string path){await using SqliteConnection db=await c.Factory.OpenAsync();await using SqliteCommand command=db.CreateCommand();command.CommandText="INSERT INTO ProviderLibrarySources(Id,ProviderId,Path,NormalizedPath,Enabled,FirstSeenAtUtc,LastSeenAtUtc) VALUES($id,'steam',$path,$normalized,1,$at,$at);";command.Parameters.AddWithValue("$id",id);command.Parameters.AddWithValue("$path",path);command.Parameters.AddWithValue("$normalized",ProviderLibraryIdentity.NormalizePath(path));command.Parameters.AddWithValue("$at",DateTime.UtcNow.ToString("O"));await command.ExecuteNonQueryAsync();}
 
-    private sealed class FakeProvider : ILibraryProvider
+    private sealed class FakeProvider(string id="steam") : ILibraryProvider
     {
-        public string Id=>"steam";public string DisplayName=>"Steam";
-        public Task<ProviderAvailabilityResult> DetectAsync(CancellationToken cancellationToken=default)=>Task.FromResult(new ProviderAvailabilityResult("steam",true,null,"ok",false,[]));
+        public string Id=>id;public string DisplayName=>id;
+        public Task<ProviderAvailabilityResult> DetectAsync(CancellationToken cancellationToken=default)=>Task.FromResult(new ProviderAvailabilityResult(id,true,null,"ok",false,[]));
         public Task<ProviderScanResult> ScanAsync(ProviderScanRequest request,CancellationToken cancellationToken=default)=>Task.FromResult(Scan());
         public Task<ProviderValidationResult> ValidateAsync(ProviderSource source,CancellationToken cancellationToken=default)=>Task.FromResult(new ProviderValidationResult(true,"ok",[]));
         public Task<ResolvedLaunchTarget> ResolveLaunchTargetAsync(ProviderSource source,CancellationToken cancellationToken=default)=>throw new NotSupportedException();
+    }
+
+    private sealed class RecordingAutomaticArtwork:IAutomaticImportArtworkService
+    {
+        public string? ProviderId{get;private set;}public IReadOnlyCollection<string> LibraryItemIds{get;private set;}=[];
+        public Task QueueMissingArtworkAsync(string providerId,IReadOnlyCollection<string> libraryItemIds,CancellationToken cancellationToken=default){ProviderId=providerId;LibraryItemIds=libraryItemIds;return Task.CompletedTask;}
     }
 
     private sealed class CountingProvider : ILibraryProvider

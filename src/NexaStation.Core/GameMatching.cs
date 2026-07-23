@@ -76,13 +76,20 @@ public sealed class DeterministicGameMatchScorer : IGameMatchScorer
             score += 1000;
             reasons.Add("External provider ID matches exactly.");
         }
-        if (!string.IsNullOrWhiteSpace(identity.SteamAppId)
+        string? externalIdentityKey = !string.IsNullOrWhiteSpace(identity.SteamAppId) ? "steam"
+            : !string.IsNullOrWhiteSpace(identity.ProviderId) ? identity.ProviderId
+            : null;
+        string? externalIdentityValue = string.Equals(externalIdentityKey, "steam", StringComparison.OrdinalIgnoreCase)
+            ? identity.SteamAppId
+            : identity.ProviderItemId;
+        if (!string.IsNullOrWhiteSpace(externalIdentityKey)
+            && !string.IsNullOrWhiteSpace(externalIdentityValue)
             && candidate.ExternalIds is not null
-            && candidate.ExternalIds.TryGetValue("steam", out string? steamId)
-            && string.Equals(identity.SteamAppId, steamId, StringComparison.OrdinalIgnoreCase))
+            && candidate.ExternalIds.TryGetValue(externalIdentityKey, out string? candidateExternalId)
+            && string.Equals(externalIdentityValue, candidateExternalId, StringComparison.OrdinalIgnoreCase))
         {
             score += 1000;
-            reasons.Add("Steam App ID matches exactly.");
+            reasons.Add($"{externalIdentityKey} game ID matches exactly.");
         }
         if (!string.IsNullOrWhiteSpace(identity.GameSerial) && !string.IsNullOrWhiteSpace(candidate.GameSerial))
         {
