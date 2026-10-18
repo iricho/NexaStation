@@ -8,6 +8,6 @@
     <Setter Property="FocusVisualSecondaryBrush" Value="{StaticResource NexaFocusSecondaryBrush}" />
     <Setter Property="FocusVisualPrimaryThickness" Value="3" />
     <Setter Property="FocusVisualSecondaryThickness" Value="2" />
-    <Setter Property="FocusVisualMargin" Value="-4" />
+    <Setter Property="FocusVisualMargin" Value="-3" />
   </Style>
 </ResourceDictionary>

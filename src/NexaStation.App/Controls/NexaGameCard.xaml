@@ -1,14 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <UserControl x:Class="NexaStation.App.Controls.NexaGameCard" x:Name="ControlRoot" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="using:NexaStation.App.Controls" DataContext="{x:Bind Card, Mode=OneWay}" IsTabStop="False">
-  <Border Width="{Binding Width}" Height="{Binding Height}" Style="{StaticResource NexaCardBorderStyle}" Background="{StaticResource NexaCardGradient}" AutomationProperties.Name="{Binding Title}">
+  <Border Width="{Binding DisplayWidth}" Height="{Binding DisplayHeight}" Style="{StaticResource NexaCardBorderStyle}" BorderBrush="{Binding LibraryBorderBrush}" Background="{StaticResource NexaCardGradient}" AutomationProperties.Name="{Binding Title}">
     <Grid>
       <local:NexaArtworkSurface Source="{Binding Artwork}" FallbackBrush="{Binding FallbackBrush}" FallbackText="{Binding FallbackInitial}" />
       <Border Background="{StaticResource NexaCardScrimBrush}" />
-      <Border Margin="12" Padding="8,4" HorizontalAlignment="Right" VerticalAlignment="Top" CornerRadius="6" Background="#B70A0E17"><TextBlock Text="{Binding ProviderLabel}" Style="{StaticResource NexaCaptionStyle}" /></Border>
-      <StackPanel VerticalAlignment="Bottom" Padding="16,12" Spacing="3">
-        <TextBlock Text="{Binding Title}" Style="{StaticResource NexaCardTitleStyle}" />
-        <TextBlock Text="{Binding ActivityLabel}" Style="{StaticResource NexaCardSubtitleStyle}" />
-      </StackPanel>
+      <Border Margin="8" Padding="6,3" HorizontalAlignment="Right" VerticalAlignment="Top" CornerRadius="6" Background="{StaticResource NexaArtworkBadgeBrush}"><TextBlock Text="{Binding ProviderLabel}" Foreground="{StaticResource NexaArtworkMutedBrush}" FontSize="9" /></Border>
+      <Button Content="{Binding FavoriteSymbol}" Visibility="{Binding LibraryActionsVisibility}" Click="Favorite_Click" AutomationProperties.Name="Toggle favorite" IsTabStop="False" Margin="3" Padding="4,0" MinWidth="28" Height="28" FontSize="22" Foreground="#FF526F" Background="Transparent" BorderThickness="0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+      <Grid VerticalAlignment="Bottom" Margin="9,0,6,6" RowSpacing="2"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="28"/></Grid.RowDefinitions>
+        <TextBlock Text="{Binding Title}" Foreground="{StaticResource NexaArtworkTextBrush}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+        <TextBlock Grid.Row="1" Text="{Binding ActivityLabel}" Margin="0,0,64,0" VerticalAlignment="Center" Foreground="{StaticResource NexaArtworkMutedBrush}" FontSize="10" TextTrimming="CharacterEllipsis"/>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right" Visibility="{Binding LibraryActionsVisibility}">
+          <Button Click="Play_Click" AutomationProperties.Name="Play game" IsTabStop="False" Width="28" Height="28" Padding="0" CornerRadius="14" Background="{StaticResource NexaArtworkBadgeBrush}" Foreground="{StaticResource NexaAccentBrush}" BorderBrush="{StaticResource NexaAccentBorderBrush}" BorderThickness="1"><FontIcon Glyph="&#xE768;" FontSize="12"/></Button>
+          <Button Click="Options_Click" AutomationProperties.Name="Game options" IsTabStop="False" Width="24" Height="28" Padding="0" CornerRadius="14" Background="{StaticResource NexaArtworkBadgeBrush}" Foreground="{StaticResource NexaArtworkTextBrush}" Content="···"/>
+        </StackPanel>
+      </Grid>
     </Grid>
   </Border>
 </UserControl>

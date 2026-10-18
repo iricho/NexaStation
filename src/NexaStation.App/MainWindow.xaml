@@ -27,7 +27,12 @@
       PointerMoved="Root_PointerMoved"
       PointerPressed="Root_PointerPressed">
     <Grid.Resources>
-      <DataTemplate x:Key="NexaGameCardTemplate" x:DataType="vm:CardViewModel"><controls:NexaGameCard Card="{x:Bind}" /></DataTemplate>
+      <Style x:Key="HomeViewAllStyle" TargetType="Button" BasedOn="{StaticResource NexaFocusableControlStyle}"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Foreground" Value="{StaticResource NexaMutedTextBrush}"/><Setter Property="FontSize" Value="12"/><Setter Property="Padding" Value="8,3"/><Setter Property="MinHeight" Value="28"/></Style>
+      <Style x:Key="HomeShortcutStyle" TargetType="Button" BasedOn="{StaticResource NexaFocusableControlStyle}"><Setter Property="Background" Value="{StaticResource NexaPanelBrush}"/><Setter Property="BorderBrush" Value="{StaticResource NexaCardBorderBrush}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="10"/><Setter Property="Padding" Value="0"/><Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/></Style>
+      <Style x:Key="HomePanelStyle" TargetType="Border"><Setter Property="Background" Value="{StaticResource NexaPanelBrush}"/><Setter Property="BorderBrush" Value="{StaticResource NexaCardBorderBrush}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="10"/><Setter Property="Padding" Value="18,8"/></Style>
+      <DataTemplate x:Key="LibraryFilterTemplate" x:DataType="vm:LibraryFilterViewModel"><ToggleButton Style="{StaticResource SectionToggleStyle}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="32" Padding="10,5" Margin="0,1" FontSize="12" IsChecked="{x:Bind IsSelected}" Tag="{x:Bind Value}" Click="LibrarySidebar_Click"><Grid MinWidth="160"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{x:Bind Label}" TextTrimming="CharacterEllipsis"/><TextBlock Grid.Column="1" Text="{x:Bind Count}" Opacity="0.75" Margin="12,0,0,0"/></Grid></ToggleButton></DataTemplate>
+
+      <DataTemplate x:Key="NexaGameCardTemplate" x:DataType="vm:CardViewModel"><controls:NexaGameCard Card="{x:Bind}" ActionRequested="LibraryCard_ActionRequested" /></DataTemplate>
       <DataTemplate x:Key="NexaApplicationCardTemplate" x:DataType="vm:CardViewModel"><controls:NexaApplicationTile Card="{x:Bind}" /></DataTemplate>
       <DataTemplate x:Key="NexaGalleryCardTemplate" x:DataType="vm:GalleryCardViewModel"><controls:NexaGalleryCard Card="{x:Bind}" /></DataTemplate>
       <DataTemplate x:Key="NexaHomeGameCardTemplate" x:DataType="vm:CardViewModel"><controls:NexaHomeGameCard Card="{x:Bind}" /></DataTemplate>
@@ -50,7 +55,7 @@
     <Image x:Name="DashboardBackgroundImage" Grid.RowSpan="4" Source="{x:Bind ViewModel.DashboardBackgroundArtwork, Mode=OneWay}" Stretch="UniformToFill" Opacity="0.2" IsHitTestVisible="False" />
     <Border Grid.RowSpan="4" Background="{StaticResource NexaWindowScrimBrush}" IsHitTestVisible="False" />
 
-    <Grid x:Name="TopHeader" Grid.Row="0" Padding="48,17,48,12" Background="{StaticResource NexaChromeBrush}">
+    <Grid x:Name="TopHeader" Grid.Row="0" Padding="48,17,48,12" Background="{StaticResource NexaChromeBrush}" BorderBrush="{StaticResource NexaCardBorderBrush}" BorderThickness="0,0,0,1">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="238" />
         <ColumnDefinition Width="*" />
@@ -58,9 +63,7 @@
       </Grid.ColumnDefinitions>
 
       <StackPanel x:Name="HeaderBrand" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-        <Border Width="40" Height="40" CornerRadius="11" Background="{StaticResource NexaAccentBrush}">
-          <FontIcon Glyph="&#xE950;" Foreground="{StaticResource NexaInverseAccentTextBrush}" FontSize="21" />
-        </Border>
+        <Image Width="40" Height="40" Source="ms-appx:///Assets/AppLogo64.png" AutomationProperties.Name="NexaStation"/>
         <StackPanel>
           <TextBlock Text="NexaStation" FontSize="20" FontWeight="SemiBold" />
           <TextBlock x:Name="BrandSubtitle" Text="GAMES · APPS · MEDIA" FontSize="9" Foreground="{StaticResource NexaMutedTextBrush}" CharacterSpacing="115" />
@@ -164,13 +167,13 @@
         x:Name="DashboardContent"
         Grid.Row="2"
         Margin="0,8,0,0"
-        Background="#A6090B13"
+        Background="Transparent"
         VerticalScrollBarVisibility="Hidden"
         HorizontalScrollBarVisibility="Disabled">
       <StackPanel x:Name="DashboardFrame" Margin="60,12,60,34" Spacing="24">
-        <Grid x:Name="ModernHomeSurface" RowSpacing="13">
-          <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-          <controls:NexaHeroBanner
+        <Grid x:Name="ModernHomeSurface" RowSpacing="14">
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+<controls:NexaHeroBanner
               x:Name="HeroBanner"
               Height="250"
               Artwork="{x:Bind ViewModel.FeaturedArtwork, Mode=OneWay}"
@@ -183,30 +186,37 @@
               HeroIndexRequested="HeroBanner_HeroIndexRequested"
               PrimaryClick="HeroPlay_Click"
               SecondaryClick="HeroDetails_Click" />
-
-          <StackPanel x:Name="ContinuePanel" Grid.Row="1" Spacing="7" Visibility="{x:Bind ViewModel.ContinueSectionVisibility, Mode=OneWay}">
-            <TextBlock Text="{x:Bind ViewModel.ContinueSectionTitle, Mode=OneWay}" Style="{StaticResource NexaSectionHeadingStyle}" />
-            <Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><ListView ItemsSource="{x:Bind ViewModel.ContinueItems, Mode=OneWay}" ItemTemplate="{StaticResource NexaHomeGameCardTemplate}" SelectionMode="None" IsItemClickEnabled="True" ItemClick="Card_ItemClick" GotFocus="CardList_GotFocus" ScrollViewer.HorizontalScrollMode="Enabled" ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollMode="Disabled"><ListView.ItemsPanel><ItemsPanelTemplate><ItemsStackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListView.ItemsPanel><ListView.ItemContainerStyle><Style TargetType="ListViewItem" BasedOn="{StaticResource HomeCardListStyle}" /></ListView.ItemContainerStyle></ListView><controls:NexaHomeEndpointTile x:Name="GamesEndpoint" Grid.Column="1" Width="96" Height="132" Glyph="&#xECA5;" Label="View All" Click="ViewAllGames_Click" /></Grid>
-          </StackPanel>
-
-          <Grid x:Name="DashboardPairGrid" Grid.Row="2" ColumnSpacing="22" RowSpacing="13">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="0.85*" /><ColumnDefinition Width="1.33*" /></Grid.ColumnDefinitions>
-            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-            <StackPanel x:Name="ApplicationsPanel" Spacing="7" Visibility="{x:Bind ViewModel.ApplicationSectionVisibility, Mode=OneWay}">
-              <TextBlock Text="{x:Bind ViewModel.ApplicationSectionTitle, Mode=OneWay}" Style="{StaticResource NexaSectionHeadingStyle}" />
-              <Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><ListView ItemsSource="{x:Bind ViewModel.RecentAppItems, Mode=OneWay}" ItemTemplate="{StaticResource NexaHomeApplicationTileTemplate}" SelectionMode="None" IsItemClickEnabled="True" ItemClick="Card_ItemClick" GotFocus="CardList_GotFocus" ScrollViewer.HorizontalScrollMode="Enabled" ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollMode="Disabled"><ListView.ItemsPanel><ItemsPanelTemplate><ItemsStackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListView.ItemsPanel><ListView.ItemContainerStyle><Style TargetType="ListViewItem" BasedOn="{StaticResource HomeCardListStyle}" /></ListView.ItemContainerStyle></ListView><controls:NexaHomeEndpointTile x:Name="AppsEndpoint" Grid.Column="1" Width="96" Height="94" Glyph="&#xE71D;" Label="All Apps" Click="ViewAllApps_Click" /></Grid>
-            </StackPanel>
-            <StackPanel x:Name="RecentPhotosPanel" Grid.Column="1" Spacing="7" Visibility="{x:Bind GalleryViewModel.HomePreviewVisibility, Mode=OneWay}">
-              <TextBlock Text="Recent Photos" Style="{StaticResource NexaSectionHeadingStyle}" />
-              <Grid ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><ListView ItemsSource="{x:Bind GalleryViewModel.HomePreview, Mode=OneWay}" ItemTemplate="{StaticResource NexaHomeGalleryTileTemplate}" SelectionMode="None" IsItemClickEnabled="True" ItemClick="GalleryCard_ItemClick" ScrollViewer.HorizontalScrollMode="Enabled" ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollMode="Disabled"><ListView.ItemsPanel><ItemsPanelTemplate><ItemsStackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListView.ItemsPanel><ListView.ItemContainerStyle><Style TargetType="ListViewItem" BasedOn="{StaticResource HomeCardListStyle}" /></ListView.ItemContainerStyle></ListView><controls:NexaHomeEndpointTile x:Name="PhotosEndpoint" Grid.Column="1" Width="76" Height="94" Glyph="&#xEB9F;" Label="View All" Click="ViewAllPhotos_Click" /></Grid>
+          <Grid x:Name="HomeShortcuts" Grid.Row="1" ColumnSpacing="16"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Button Grid.Column="0" Style="{StaticResource HomeShortcutStyle}" Tag="resume" Click="HomeShortcut_Click"><Grid ColumnSpacing="16"><Grid.ColumnDefinitions><ColumnDefinition Width="64"/><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions><Border Background="#233BE6D0" CornerRadius="10" Height="64"><FontIcon Glyph="&#xE7FC;" FontSize="27" Foreground="{StaticResource NexaAccentBrush}"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2"><TextBlock Text="Resume Last Game" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="{x:Bind ViewModel.HomeResumeTitle, Mode=OneWay}" FontSize="12" Foreground="{StaticResource NexaMutedTextBrush}" TextTrimming="CharacterEllipsis"/></StackPanel><FontIcon Grid.Column="2" Glyph="&#xE76C;" FontSize="13" Margin="0,0,8,0"/></Grid></Button><Button Grid.Column="1" Style="{StaticResource HomeShortcutStyle}" Tag="favorites" Click="HomeShortcut_Click"><Grid ColumnSpacing="16"><Grid.ColumnDefinitions><ColumnDefinition Width="64"/><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions><Border Background="#334B246F" CornerRadius="10" Height="64"><FontIcon Glyph="&#xEB52;" FontSize="27" Foreground="{StaticResource NexaAccentBrush}"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2"><TextBlock Text="Favorites" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="{x:Bind ViewModel.HomeFavoritesSummary, Mode=OneWay}" FontSize="12" Foreground="{StaticResource NexaMutedTextBrush}" TextTrimming="CharacterEllipsis"/></StackPanel><FontIcon Grid.Column="2" Glyph="&#xE76C;" FontSize="13" Margin="0,0,8,0"/></Grid></Button><Button Grid.Column="2" Style="{StaticResource HomeShortcutStyle}" Tag="library" Click="HomeShortcut_Click"><Grid ColumnSpacing="16"><Grid.ColumnDefinitions><ColumnDefinition Width="64"/><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions><Border Background="#33356CD8" CornerRadius="10" Height="64"><FontIcon Glyph="&#xE8F1;" FontSize="27" Foreground="{StaticResource NexaAccentBrush}"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2"><TextBlock Text="Your Library" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="{x:Bind ViewModel.HomeLibrarySummary, Mode=OneWay}" FontSize="12" Foreground="{StaticResource NexaMutedTextBrush}" TextTrimming="CharacterEllipsis"/></StackPanel><FontIcon Grid.Column="2" Glyph="&#xE76C;" FontSize="13" Margin="0,0,8,0"/></Grid></Button><Button Grid.Column="3" Style="{StaticResource HomeShortcutStyle}" Tag="search" Click="HomeShortcut_Click"><Grid ColumnSpacing="16"><Grid.ColumnDefinitions><ColumnDefinition Width="64"/><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions><Border Background="#334F6684" CornerRadius="10" Height="64"><FontIcon Glyph="&#xE721;" FontSize="27" Foreground="{StaticResource NexaAccentBrush}"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2"><TextBlock Text="Search" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Find games, apps, and media" FontSize="12" Foreground="{StaticResource NexaMutedTextBrush}" TextTrimming="CharacterEllipsis"/></StackPanel><FontIcon Grid.Column="2" Glyph="&#xE76C;" FontSize="13" Margin="0,0,8,0"/></Grid></Button></Grid>
+<StackPanel x:Name="ContinuePanel" Spacing="6" Grid.Row="2" Visibility="{x:Bind ViewModel.ContinueSectionVisibility, Mode=OneWay}">
+      <Grid><TextBlock Text="{x:Bind ViewModel.ContinueSectionTitle, Mode=OneWay}" Style="{StaticResource NexaSectionHeadingStyle}" VerticalAlignment="Center" /><Button Content="View All  →" Style="{StaticResource HomeViewAllStyle}" HorizontalAlignment="Right" Click="ViewAllGames_Click" /></Grid>
+      <ListView ItemsSource="{x:Bind ViewModel.ContinueItems, Mode=OneWay}" ItemTemplate="{StaticResource NexaHomeGameCardTemplate}" SelectionMode="None" IsItemClickEnabled="True" ItemClick="Card_ItemClick" GotFocus="CardList_GotFocus" ScrollViewer.HorizontalScrollMode="Enabled" ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollMode="Disabled"><ListView.ItemsPanel><ItemsPanelTemplate><ItemsStackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListView.ItemsPanel><ListView.ItemContainerStyle><Style TargetType="ListViewItem" BasedOn="{StaticResource HomeCardListStyle}" /></ListView.ItemContainerStyle></ListView>
+    </StackPanel>
+          <Grid x:Name="DashboardPairGrid" Grid.Row="3" ColumnSpacing="14" RowSpacing="14"><Grid.ColumnDefinitions><ColumnDefinition Width="1.6*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <Border x:Name="HomeServicesPanel" Style="{StaticResource HomePanelStyle}"><StackPanel Spacing="14">
+<StackPanel x:Name="ApplicationsPanel" Spacing="6" Visibility="{x:Bind ViewModel.ApplicationSectionVisibility, Mode=OneWay}">
+      <Grid><TextBlock Text="{x:Bind ViewModel.ApplicationSectionTitle, Mode=OneWay}" Style="{StaticResource NexaSectionHeadingStyle}" VerticalAlignment="Center" /><Button Content="View All  →" Style="{StaticResource HomeViewAllStyle}" HorizontalAlignment="Right" Click="ViewAllApps_Click" /></Grid>
+      <ListView ItemsSource="{x:Bind ViewModel.RecentAppItems, Mode=OneWay}" ItemTemplate="{StaticResource NexaHomeApplicationTileTemplate}" SelectionMode="None" IsItemClickEnabled="True" ItemClick="Card_ItemClick" GotFocus="CardList_GotFocus" ScrollViewer.HorizontalScrollMode="Enabled" ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollMode="Disabled"><ListView.ItemsPanel><ItemsPanelTemplate><ItemsStackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListView.ItemsPanel><ListView.ItemContainerStyle><Style TargetType="ListViewItem" BasedOn="{StaticResource HomeCardListStyle}" /></ListView.ItemContainerStyle></ListView>
+    </StackPanel><StackPanel x:Name="HomeMediaPanel" Spacing="6" >
+      <Grid><TextBlock Text="Media Services" Style="{StaticResource NexaSectionHeadingStyle}" VerticalAlignment="Center" /><Button Content="View All  →" Style="{StaticResource HomeViewAllStyle}" HorizontalAlignment="Right" Click="ViewAllMedia_Click" /></Grid>
+      <ListView ItemsSource="{x:Bind DiscoverAppsViewModel.StreamingItems, Mode=OneWay}" ItemTemplate="{StaticResource NexaHomeServiceTileTemplate}" SelectionMode="None" IsItemClickEnabled="True" ItemClick="DiscoverCard_ItemClick" ScrollViewer.HorizontalScrollMode="Enabled" ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollMode="Disabled"><ListView.ItemsPanel><ItemsPanelTemplate><ItemsStackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListView.ItemsPanel><ListView.ItemContainerStyle><Style TargetType="ListViewItem" BasedOn="{StaticResource HomeCardListStyle}" /></ListView.ItemContainerStyle></ListView>
+    </StackPanel>
+            </StackPanel></Border>
+            <StackPanel x:Name="HomeActivityPanel" Grid.Column="1" Spacing="10">
+              <Border Style="{StaticResource HomePanelStyle}"><StackPanel x:Name="RecentlyAddedPanel" Spacing="6" >
+      <Grid><TextBlock Text="Recently Added" Style="{StaticResource NexaSectionHeadingStyle}" VerticalAlignment="Center" /><Button Content="View All  →" Style="{StaticResource HomeViewAllStyle}" HorizontalAlignment="Right" Click="ViewAllRecent_Click" /></Grid>
+      <ListView ItemsSource="{x:Bind ViewModel.RecentItems, Mode=OneWay}" ItemTemplate="{StaticResource NexaHomeActivityRowTemplate}" SelectionMode="None" IsItemClickEnabled="True" ItemClick="Card_ItemClick" ScrollViewer.HorizontalScrollMode="Disabled" ScrollViewer.VerticalScrollMode="Disabled"><ListView.ItemsPanel><ItemsPanelTemplate><ItemsStackPanel Orientation="Vertical" /></ItemsPanelTemplate></ListView.ItemsPanel><ListView.ItemContainerStyle><Style TargetType="ListViewItem" BasedOn="{StaticResource HomeCardListStyle}" /></ListView.ItemContainerStyle></ListView>
+    </StackPanel></Border>
+              <Border Style="{StaticResource HomePanelStyle}"><Grid ColumnSpacing="18"><Grid.ColumnDefinitions><ColumnDefinition Width="62"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><FontIcon Glyph="&#xE7FC;" FontSize="38" Foreground="{StaticResource NexaAccentBrush}"/><StackPanel Grid.Column="1" Spacing="5"><TextBlock Text="Tips &amp; Updates" FontSize="14" FontWeight="SemiBold"/><TextBlock Text="Make yourself at home" FontSize="13" FontWeight="SemiBold"/><TextBlock Text="Use your controller to browse. Press Y to favorite a game and open Options for more." FontSize="12" Foreground="{StaticResource NexaMutedTextBrush}" TextWrapping="Wrap"/></StackPanel></Grid></Border>
             </StackPanel>
           </Grid>
-
-          <Grid x:Name="DashboardLowerGrid" Grid.Row="3" ColumnSpacing="18" RowSpacing="13">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="1.1*" /><ColumnDefinition Width="0.78*" /><ColumnDefinition Width="1*" /></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-            <StackPanel x:Name="HomeMediaPanel" Spacing="7"><TextBlock Text="Media Services" Style="{StaticResource NexaSectionHeadingStyle}" /><Grid ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><ListView ItemsSource="{x:Bind DiscoverAppsViewModel.StreamingItems, Mode=OneWay}" ItemTemplate="{StaticResource NexaHomeServiceTileTemplate}" SelectionMode="None" IsItemClickEnabled="True" ItemClick="DiscoverCard_ItemClick" ScrollViewer.HorizontalScrollMode="Enabled" ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollMode="Disabled"><ListView.ItemsPanel><ItemsPanelTemplate><ItemsStackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListView.ItemsPanel><ListView.ItemContainerStyle><Style TargetType="ListViewItem" BasedOn="{StaticResource HomeCardListStyle}" /></ListView.ItemContainerStyle></ListView><controls:NexaHomeEndpointTile x:Name="MediaEndpoint" Grid.Column="1" Width="70" Height="94" Glyph="&#xE712;" Label="More" Click="ViewAllMedia_Click" /></Grid></StackPanel>
-            <StackPanel x:Name="FavoritesPanel" Grid.Column="1" Spacing="7" Visibility="{x:Bind ViewModel.FavoriteSectionVisibility, Mode=OneWay}"><TextBlock Text="Favorites" Style="{StaticResource NexaSectionHeadingStyle}" /><Grid ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><ListView ItemsSource="{x:Bind ViewModel.FavoriteItems, Mode=OneWay}" ItemTemplate="{StaticResource NexaHomeFavoriteTileTemplate}" SelectionMode="None" IsItemClickEnabled="True" ItemClick="Card_ItemClick" ScrollViewer.HorizontalScrollMode="Enabled" ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollMode="Disabled"><ListView.ItemsPanel><ItemsPanelTemplate><ItemsStackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListView.ItemsPanel><ListView.ItemContainerStyle><Style TargetType="ListViewItem" BasedOn="{StaticResource HomeCardListStyle}" /></ListView.ItemContainerStyle></ListView><controls:NexaHomeEndpointTile x:Name="FavoritesEndpoint" Grid.Column="1" Width="70" Height="94" Glyph="&#xE734;" Label="Manage" Click="ManageFavorites_Click" /></Grid></StackPanel>
-            <StackPanel x:Name="RecentlyAddedPanel" Grid.Column="2" Spacing="7"><TextBlock Text="Recently Added" Style="{StaticResource NexaSectionHeadingStyle}" /><Grid ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><ListView ItemsSource="{x:Bind ViewModel.RecentItems, Mode=OneWay}" ItemTemplate="{StaticResource NexaHomeActivityRowTemplate}" SelectionMode="None" IsItemClickEnabled="True" ItemClick="Card_ItemClick" ScrollViewer.HorizontalScrollMode="Disabled" ScrollViewer.VerticalScrollMode="Disabled"><ListView.ItemsPanel><ItemsPanelTemplate><ItemsStackPanel Orientation="Vertical" /></ItemsPanelTemplate></ListView.ItemsPanel><ListView.ItemContainerStyle><Style TargetType="ListViewItem" BasedOn="{StaticResource HomeCardListStyle}" /></ListView.ItemContainerStyle></ListView><controls:NexaHomeEndpointTile x:Name="RecentEndpoint" Grid.Column="1" Width="70" Height="94" Glyph="&#xE896;" Label="View All" Click="ViewAllRecent_Click" /></Grid></StackPanel>
+          <Grid x:Name="DashboardLowerGrid" Grid.Row="4" Visibility="Collapsed">
+<StackPanel x:Name="RecentPhotosPanel" Spacing="6" >
+      <Grid><TextBlock Text="Recent Photos" Style="{StaticResource NexaSectionHeadingStyle}" VerticalAlignment="Center" /><Button Content="View All  →" Style="{StaticResource HomeViewAllStyle}" HorizontalAlignment="Right" Click="ViewAllPhotos_Click" /></Grid>
+      <ListView ItemsSource="{x:Bind GalleryViewModel.HomePreview, Mode=OneWay}" ItemTemplate="{StaticResource NexaHomeGalleryTileTemplate}" SelectionMode="None" IsItemClickEnabled="True" ItemClick="GalleryCard_ItemClick" ScrollViewer.HorizontalScrollMode="Enabled" ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollMode="Disabled"><ListView.ItemsPanel><ItemsPanelTemplate><ItemsStackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListView.ItemsPanel><ListView.ItemContainerStyle><Style TargetType="ListViewItem" BasedOn="{StaticResource HomeCardListStyle}" /></ListView.ItemContainerStyle></ListView>
+    </StackPanel><StackPanel x:Name="FavoritesPanel" Spacing="6" >
+      <Grid><TextBlock Text="Favorites" Style="{StaticResource NexaSectionHeadingStyle}" VerticalAlignment="Center" /><Button Content="View All  →" Style="{StaticResource HomeViewAllStyle}" HorizontalAlignment="Right" Click="ManageFavorites_Click" /></Grid>
+      <ListView ItemsSource="{x:Bind ViewModel.FavoriteItems, Mode=OneWay}" ItemTemplate="{StaticResource NexaHomeFavoriteTileTemplate}" SelectionMode="None" IsItemClickEnabled="True" ItemClick="Card_ItemClick" ScrollViewer.HorizontalScrollMode="Enabled" ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollMode="Disabled"><ListView.ItemsPanel><ItemsPanelTemplate><ItemsStackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListView.ItemsPanel><ListView.ItemContainerStyle><Style TargetType="ListViewItem" BasedOn="{StaticResource HomeCardListStyle}" /></ListView.ItemContainerStyle></ListView>
+    </StackPanel>
           </Grid>
         </Grid>
 
@@ -217,116 +227,156 @@
           <StackPanel x:Name="DiscoverAppsPanel" Spacing="14" Visibility="Collapsed"><ItemsControl ItemsSource="{x:Bind DiscoverAppsViewModel.Categories, Mode=OneWay}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="8" /></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><Button Content="{x:Bind}" Tag="{x:Bind}" Click="DiscoverCategory_Click" MinHeight="42" /></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><ProgressBar IsIndeterminate="True" Visibility="{x:Bind DiscoverAppsViewModel.RefreshVisibility, Mode=OneWay}" /><GridView ItemsSource="{x:Bind DiscoverAppsViewModel.Items, Mode=OneWay}" SelectionMode="None" IsItemClickEnabled="True" ItemClick="DiscoverCard_ItemClick" ScrollViewer.HorizontalScrollMode="Disabled"><GridView.ItemsPanel><ItemsPanelTemplate><ItemsWrapGrid Orientation="Horizontal" /></ItemsPanelTemplate></GridView.ItemsPanel><GridView.ItemTemplate><DataTemplate x:DataType="vm:DiscoverAppCardViewModel"><controls:NexaDiscoverAppCard Card="{x:Bind}" /></DataTemplate></GridView.ItemTemplate></GridView></StackPanel>
         </StackPanel>
 
-        <StackPanel x:Name="ModernSectionSurface" Spacing="20" Visibility="Collapsed">
-        <StackPanel Spacing="4">
-          <TextBlock Text="{x:Bind ViewModel.CurrentSectionTitle, Mode=OneWay}" FontSize="42" FontWeight="SemiBold" />
-          <TextBlock Text="{x:Bind ViewModel.SectionDescription, Mode=OneWay}" FontSize="16" Foreground="{StaticResource NexaMutedTextBrush}" />
-          <StackPanel x:Name="LibraryToolsPanel" Spacing="8" Visibility="Collapsed">
-            <AutoSuggestBox x:Name="LibrarySearch" Width="420" HorizontalAlignment="Left" Margin="0,10,0,0" PlaceholderText="Search title, subtitle, or description" TextChanged="LibrarySearch_TextChanged" QueryIcon="Find" />
-            <StackPanel Orientation="Horizontal" Spacing="10">
-              <ComboBox Width="190" Header="Library view" SelectedIndex="0" SelectionChanged="LibraryView_SelectionChanged">
-                <x:String>All</x:String><x:String>Games</x:String><x:String>Applications</x:String><x:String>Favorites</x:String><x:String>Recently Added</x:String><x:String>Recently Used</x:String><x:String>Native</x:String><x:String>Emulated</x:String><x:String>Hidden</x:String><x:String>Valid targets</x:String><x:String>Missing targets</x:String>
-              </ComboBox>
-              <ComboBox Width="190" Header="Sort" SelectedIndex="0" SelectionChanged="LibrarySort_SelectionChanged">
-                <x:String>Title</x:String><x:String>Recently added</x:String><x:String>Recently launched</x:String><x:String>Most played</x:String>
-              </ComboBox>
-              <ComboBox Width="190" Header="Presentation" SelectedIndex="0" SelectionChanged="LibraryPresentation_SelectionChanged"><x:String>Adaptive Grid</x:String><x:String>Compact List</x:String><x:String>Game Covers</x:String><x:String>Application Icons</x:String></ComboBox>
-            </StackPanel>
-          </StackPanel>
-          <StackPanel x:Name="GamesToolsPanel" Orientation="Horizontal" Spacing="10" Visibility="Collapsed"><ComboBox Width="190" Header="Games view" SelectedIndex="0" SelectionChanged="GamesPresentation_SelectionChanged"><x:String>Wide Grid</x:String><x:String>Cover Grid</x:String></ComboBox></StackPanel>
-        </StackPanel>
-
-        <controls:NexaAdaptiveLibraryGrid x:Name="SectionAdaptiveGrid" Items="{x:Bind ViewModel.CurrentSectionItems, Mode=OneWay}" ItemInvoked="AdaptiveLibrary_ItemInvoked" GotFocus="CardList_GotFocus" />
-        </StackPanel>
       </StackPanel>
     </ScrollViewer>
 
-    <Grid x:Name="CrossbarRoot" Grid.Row="0" Grid.RowSpan="4" Canvas.ZIndex="20" Background="#FF020816" Visibility="Collapsed">
+    <Grid x:Name="ModernSectionSurface" Grid.Row="2" Margin="24,18,24,12" ColumnSpacing="20" RowSpacing="12" Visibility="Collapsed">
+      <Grid.ColumnDefinitions><ColumnDefinition x:Name="LibrarySidebarColumn" Width="204"/><ColumnDefinition Width="*"/><ColumnDefinition x:Name="LibraryDetailsColumn" Width="320"/></Grid.ColumnDefinitions>
+      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+      <Border x:Name="LibrarySidebar" Grid.RowSpan="3" BorderBrush="{StaticResource NexaCardBorderBrush}" BorderThickness="0,0,1,0" Padding="0,0,16,0">
+        <ScrollViewer VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled"><StackPanel Spacing="12">
+          <StackPanel Orientation="Horizontal" Spacing="10" Margin="8,0,0,0"><FontIcon Glyph="&#xE7FC;" FontSize="20"/><TextBlock Text="Library" FontSize="20" FontWeight="SemiBold"/></StackPanel>
+          <ItemsControl Tag="view" ItemsSource="{x:Bind ViewModel.LibraryViewFilters, Mode=OneWay}" ItemTemplate="{StaticResource LibraryFilterTemplate}"/>
+          <Border Height="1" Background="{StaticResource NexaCardBorderBrush}"/>
+          <ComboBox HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.LibraryViewOptions}" SelectedItem="{x:Bind ViewModel.LibraryView, Mode=OneWay}" SelectionChanged="LibraryView_SelectionChanged" AutomationProperties.Name="Library view"/>
+          <TextBlock Text="Sources" FontSize="14" FontWeight="SemiBold" Margin="8,0"/>
+          <ItemsControl Tag="source" ItemsSource="{x:Bind ViewModel.LibrarySourceFilters, Mode=OneWay}" ItemTemplate="{StaticResource LibraryFilterTemplate}"/>
+          <Border Height="1" Background="{StaticResource NexaCardBorderBrush}"/>
+          <TextBlock Text="Genres &amp; Categories" FontSize="14" FontWeight="SemiBold" Margin="8,0"/>
+          <ItemsControl Tag="genre" ItemsSource="{x:Bind ViewModel.LibraryGenreFilters, Mode=OneWay}" ItemTemplate="{StaticResource LibraryFilterTemplate}"/>
+        </StackPanel></ScrollViewer>
+      </Border>
+      <StackPanel Grid.Column="1" Spacing="5">
+        <TextBlock Text="{x:Bind ViewModel.CurrentSectionTitle, Mode=OneWay}" FontSize="28" FontWeight="SemiBold"/>
+        <TextBlock Text="Your games and apps, ready when you are." FontSize="12" Foreground="{StaticResource NexaMutedTextBrush}"/>
+        <Grid x:Name="LibraryToolsPanel" Margin="0,8,0,0" RowSpacing="10">
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+          <Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="132"/><ColumnDefinition Width="132"/><ColumnDefinition Width="158"/></Grid.ColumnDefinitions>
+            <AutoSuggestBox x:Name="LibrarySearch" Text="{x:Bind ViewModel.LibrarySearchText, Mode=OneWay}" MinWidth="100" PlaceholderText="Search games, apps, or media…" AutomationProperties.Name="Search your library" TextChanged="LibrarySearch_TextChanged" QueryIcon="Find"/>
+            <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.LibraryPlatforms, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.LibraryPlatform, Mode=OneWay}" AutomationProperties.Name="Platform" SelectionChanged="LibraryPlatform_SelectionChanged"/>
+            <ComboBox Grid.Column="2" HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.LibraryGenres, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.LibraryGenre, Mode=OneWay}" AutomationProperties.Name="Genre" SelectionChanged="LibraryGenre_SelectionChanged"/>
+            <ComboBox x:Name="LibrarySortBox" Grid.Column="3" HorizontalAlignment="Stretch" SelectedIndex="0" AutomationProperties.Name="Sort library" SelectionChanged="LibrarySort_SelectionChanged"><x:String>Name (A–Z)</x:String><x:String>Recently added</x:String><x:String>Recently launched</x:String><x:String>Most played</x:String></ComboBox>
+          </Grid>
+          <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Hidden" HorizontalScrollMode="Enabled" VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled"><ItemsControl Tag="source" ItemsSource="{x:Bind ViewModel.LibrarySourceFilters, Mode=OneWay}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:LibraryFilterViewModel"><ToggleButton Style="{StaticResource SectionToggleStyle}" MinHeight="30" MinWidth="60" Padding="12,4" CornerRadius="14" Background="{StaticResource NexaPanelBrush}" BorderBrush="{StaticResource NexaCardBorderBrush}" FontSize="12" IsChecked="{x:Bind IsSelected}" Tag="{x:Bind Value}" Click="LibrarySource_Click"><StackPanel Orientation="Horizontal" Spacing="12"><TextBlock Text="{x:Bind Label}"/><TextBlock Text="{x:Bind Count}" Opacity="0.75"/></StackPanel></ToggleButton></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
+
+        </Grid>
+        <StackPanel x:Name="GamesToolsPanel" Visibility="Collapsed"/>
+      </StackPanel>
+      <Grid Grid.Column="1" Grid.Row="1">
+        <ProgressBar VerticalAlignment="Top" Canvas.ZIndex="1" IsIndeterminate="True" Visibility="{x:Bind ViewModel.LibraryLoadingVisibility, Mode=OneWay}" AutomationProperties.Name="Loading library" />
+        <InfoBar VerticalAlignment="Top" Canvas.ZIndex="2" IsOpen="True" IsClosable="False" Severity="Error" Title="Library unavailable" Message="{x:Bind ViewModel.LibraryLoadError, Mode=OneWay}" Visibility="{x:Bind ViewModel.LibraryErrorVisibility, Mode=OneWay}">
+          <InfoBar.ActionButton><Button Content="Try again" Click="RefreshLibrary_Click" /></InfoBar.ActionButton>
+        </InfoBar>
+        <controls:NexaEmptySection VerticalAlignment="Top" Glyph="&#xE721;" Title="{x:Bind ViewModel.SectionEmptyTitle, Mode=OneWay}" Message="{x:Bind ViewModel.SectionEmptyMessage, Mode=OneWay}" Visibility="{x:Bind ViewModel.SectionEmptyVisibility, Mode=OneWay}" />
+
+        <controls:NexaAdaptiveLibraryGrid x:Name="SectionAdaptiveGrid" ActionRequested="LibraryCard_ActionRequested" IsScrollEnabled="True" Items="{x:Bind ViewModel.CurrentSectionItems, Mode=OneWay}" Visibility="{x:Bind ViewModel.SectionItemsVisibility, Mode=OneWay}" ItemInvoked="LibrarySelection_ItemInvoked" GotFocus="CardList_GotFocus"/>
+      </Grid>
+          <Grid Grid.Row="2" Grid.Column="1"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{x:Bind ViewModel.LibraryResultsSummary, Mode=OneWay}" FontSize="12" VerticalAlignment="Center" Foreground="{StaticResource NexaMutedTextBrush}" AutomationProperties.LiveSetting="Polite"/><StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4"><Button Style="{StaticResource HomeViewAllStyle}" Content="Clear filters" IsEnabled="{x:Bind ViewModel.CanClearLibraryFilters, Mode=OneWay}" Click="ClearLibraryFilters_Click"/><Button Style="{StaticResource HomeViewAllStyle}" Content="Refresh" Click="RefreshLibrary_Click"/><ComboBox Width="134" SelectedIndex="0" AutomationProperties.Name="Library presentation" SelectionChanged="LibraryPresentation_SelectionChanged"><x:String>Adaptive Grid</x:String><x:String>Compact List</x:String><x:String>Game Covers</x:String><x:String>Application Icons</x:String></ComboBox></StackPanel></Grid>
+      <Border x:Name="LibraryDetailsPanel" Grid.Column="2" Grid.RowSpan="3" Margin="0,58,0,0" Style="{StaticResource HomePanelStyle}" Padding="12" DataContext="{x:Bind ViewModel.LibrarySelection, Mode=OneWay}">
+        <ScrollViewer VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled"><StackPanel Spacing="16" Visibility="{x:Bind ViewModel.LibrarySelectionVisibility, Mode=OneWay}">
+          <controls:NexaArtworkSurface Height="198" Source="{Binding Artwork}" FallbackBrush="{Binding FallbackBrush}" FallbackText="{Binding FallbackInitial}"/>
+          <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{Binding Title}" FontSize="21" FontWeight="SemiBold" TextWrapping="Wrap"/><Button Grid.Column="1" Style="{StaticResource HomeViewAllStyle}" Content="{Binding FavoriteSymbol}" FontSize="25" Foreground="#FF526F" Click="LibraryFavorite_Click" AutomationProperties.Name="Toggle selected favorite"/></Grid>
+          <Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="44"/></Grid.ColumnDefinitions><Button HorizontalAlignment="Stretch" MinHeight="40" Style="{StaticResource HeroPrimaryButtonStyle}" Click="LibraryPlay_Click"><StackPanel Orientation="Horizontal" Spacing="10"><FontIcon Glyph="&#xE768;" FontSize="15"/><TextBlock Text="Play"/></StackPanel></Button><Button Grid.Column="1" Content="•••" Click="LibraryOptions_Click" AutomationProperties.Name="Selected game options"/></Grid>
+          <Border Height="1" Background="{StaticResource NexaCardBorderBrush}"/>
+          <Grid RowSpacing="16" ColumnSpacing="12"><Grid.ColumnDefinitions><ColumnDefinition Width="96"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <TextBlock Text="Platform" Foreground="{StaticResource NexaMutedTextBrush}" FontSize="12"/><TextBlock Grid.Column="1" Text="{Binding ProviderLabel}" FontSize="12"/>
+            <TextBlock Grid.Row="1" Text="Category" Foreground="{StaticResource NexaMutedTextBrush}" FontSize="12"/><TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Item.PrimaryCategoryName}" FontSize="12" TextWrapping="Wrap"/>
+            <TextBlock Grid.Row="2" Text="Activity" Foreground="{StaticResource NexaMutedTextBrush}" FontSize="12"/><TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ActivityLabel}" FontSize="12" TextWrapping="Wrap"/>
+            <TextBlock Grid.Row="3" Text="Playtime" Foreground="{StaticResource NexaMutedTextBrush}" FontSize="12"/><TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Playtime}" FontSize="12"/>
+          </Grid>
+          <TextBlock Text="{Binding Description}" FontSize="13" TextWrapping="Wrap" Foreground="{StaticResource NexaMutedTextBrush}"/>
+          <Border Height="1" Background="{StaticResource NexaCardBorderBrush}"/>
+          <TextBlock Text="Links" FontSize="14" FontWeight="SemiBold"/>
+          <Button Content="Game details  →" HorizontalAlignment="Stretch" Click="LibraryDetails_Click"/>
+        </StackPanel></ScrollViewer>
+      </Border>
+    </Grid>
+
+    <Grid x:Name="CrossbarRoot" Grid.Row="0" Grid.RowSpan="4" Canvas.ZIndex="20" Background="{StaticResource CrossbarBackgroundBrush}" Visibility="Collapsed">
       <Grid.Resources>
         <Style x:Key="CrossbarPrimaryButtonStyle" TargetType="Button">
-          <Setter Property="Width" Value="128" /><Setter Property="Height" Value="116" />
+          <Setter Property="Width" Value="110" /><Setter Property="Height" Value="92" />
           <Setter Property="Padding" Value="8" /><Setter Property="Background" Value="Transparent" />
-          <Setter Property="BorderThickness" Value="0" /><Setter Property="Foreground" Value="#FF8190AC" />
+          <Setter Property="BorderThickness" Value="1" /><Setter Property="BorderBrush" Value="Transparent" /><Setter Property="Foreground" Value="{StaticResource CrossbarMutedBrush}" />
           <Setter Property="CornerRadius" Value="10" /><Setter Property="HorizontalContentAlignment" Value="Stretch" />
           <Setter Property="VerticalContentAlignment" Value="Stretch" />
         </Style>
         <Style x:Key="CrossbarRailButtonStyle" TargetType="Button">
           <Setter Property="Height" Value="62" /><Setter Property="Padding" Value="18,0" />
           <Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="1" />
-          <Setter Property="BorderBrush" Value="Transparent" /><Setter Property="Foreground" Value="#FF9AA9C3" />
+          <Setter Property="BorderBrush" Value="Transparent" /><Setter Property="Foreground" Value="{StaticResource CrossbarMutedBrush}" />
           <Setter Property="CornerRadius" Value="8" /><Setter Property="HorizontalContentAlignment" Value="Stretch" />
         </Style>
         <Style x:Key="CrossbarCardItemStyle" TargetType="ListViewItem">
           <Setter Property="Padding" Value="0" /><Setter Property="Margin" Value="0,0,12,0" />
           <Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" />
-          <Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="VerticalContentAlignment" Value="Stretch" />
+          <Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="VerticalContentAlignment" Value="Center" />
+          <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListViewItem"><ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" VerticalAlignment="Center" /></ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style x:Key="CrossbarPosterItemStyle" TargetType="ListViewItem" BasedOn="{StaticResource CrossbarCardItemStyle}">
+          <Setter Property="UseSystemFocusVisuals" Value="False"/>
         </Style>
       </Grid.Resources>
 
-      <Image Source="{x:Bind ViewModel.DashboardBackgroundArtwork, Mode=OneWay}" Stretch="UniformToFill" Opacity="0.08" IsHitTestVisible="False" />
-      <Grid IsHitTestVisible="False">
-        <Grid.Background>
-          <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Color="#F8020816" Offset="0" /><GradientStop Color="#E9041739" Offset="0.48" /><GradientStop Color="#FB01050E" Offset="1" />
-          </LinearGradientBrush>
-        </Grid.Background>
-        <Path Height="420" Margin="-80,0,-120,44" VerticalAlignment="Bottom" Stretch="Fill" Stroke="#553E91FF" StrokeThickness="20" Data="M 0,250 C 390,80 650,430 980,250 C 1260,95 1480,80 1920,210" />
-        <Path Height="360" Margin="-100,0,-180,72" VerticalAlignment="Bottom" Stretch="Fill" Stroke="#3B69C6FF" StrokeThickness="7" Data="M 0,280 C 370,135 620,390 940,275 C 1260,160 1450,90 1920,185" />
-        <Path Height="300" Margin="-120,0,-220,92" VerticalAlignment="Bottom" Stretch="Fill" Stroke="#243779F4" StrokeThickness="28" Data="M 0,270 C 410,170 620,360 1030,245 C 1380,145 1580,110 1920,155" />
-      </Grid>
+      <Image x:Name="CrossbarWallpaper" Source="ms-appx:///Assets/Backgrounds/crossbar-blue-waves.png" Stretch="UniformToFill" IsHitTestVisible="False" />
 
       <Grid>
-        <Grid.RowDefinitions><RowDefinition Height="224" /><RowDefinition Height="*" /><RowDefinition Height="72" /></Grid.RowDefinitions>
+        <Grid.RowDefinitions><RowDefinition Height="200" /><RowDefinition Height="*" /><RowDefinition Height="44" /></Grid.RowDefinitions>
 
-        <Grid Grid.Row="0" Margin="66,24,66,0">
+        <Grid Grid.Row="0" Margin="56,20,56,0">
           <Grid.RowDefinitions><RowDefinition Height="48" /><RowDefinition Height="*" /></Grid.RowDefinitions>
           <Grid>
-            <TextBlock Text="NexaStation" FontSize="26" Foreground="#FFAEB8C9" VerticalAlignment="Center" />
+            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center"><Image Source="ms-appx:///Assets/AppLogo64.png" Width="32" Height="32"/><TextBlock Text="NexaStation" FontSize="26" Foreground="{StaticResource CrossbarMutedBrush}" VerticalAlignment="Center" /></StackPanel>
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="20" VerticalAlignment="Center">
-              <TextBlock Text="{Binding Text, ElementName=HeaderClock}" FontSize="24" Foreground="White" />
+              <TextBlock Text="{Binding Text, ElementName=HeaderClock}" FontSize="20" Foreground="{StaticResource CrossbarTextBrush}" />
               <Rectangle Width="1" Height="32" Fill="#526B7891" />
-              <FontIcon Glyph="&#xE7FC;" FontSize="20" Foreground="White" />
+              <FontIcon Glyph="&#xE7FC;" FontSize="20" Foreground="{StaticResource CrossbarTextBrush}" />
               <Ellipse Width="9" Height="9" Fill="#FF8DE769" />
-              <FontIcon Glyph="&#xE701;" FontSize="23" Foreground="#FFD8E1ED" />
-              <TextBlock Text="{Binding Text, ElementName=HeaderBatteryStatus}" FontSize="19" Foreground="#FFC7D0DE" VerticalAlignment="Center" />
-              <FontIcon Glyph="&#xE850;" FontSize="26" Foreground="White" />
+              <FontIcon Glyph="&#xE701;" FontSize="23" Foreground="{StaticResource CrossbarMutedBrush}" />
+              <TextBlock Text="{Binding Text, ElementName=HeaderBatteryStatus}" FontSize="19" Foreground="{StaticResource CrossbarMutedBrush}" VerticalAlignment="Center" />
+              <FontIcon Glyph="&#xE850;" FontSize="26" Foreground="{StaticResource CrossbarTextBrush}" />
             </StackPanel>
           </Grid>
 
-          <Grid Grid.Row="1" HorizontalAlignment="Center">
+          <Grid Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center">
             <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="128" /><ColumnDefinition Width="128" /><ColumnDefinition Width="128" /><ColumnDefinition Width="128" />
-              <ColumnDefinition Width="128" /><ColumnDefinition Width="128" /><ColumnDefinition Width="128" /><ColumnDefinition Width="128" />
+              <ColumnDefinition Width="112" /><ColumnDefinition Width="112" /><ColumnDefinition Width="112" /><ColumnDefinition Width="112" />
+              <ColumnDefinition Width="112" /><ColumnDefinition Width="112" /><ColumnDefinition Width="112" /><ColumnDefinition Width="112" />
             </Grid.ColumnDefinitions>
+            <Grid x:Name="CrossbarNavigationGlow" IsHitTestVisible="False" Width="110" Height="92">
+              <Border Margin="-8" CornerRadius="18" BorderThickness="8" BorderBrush="{StaticResource CrossbarGlowOuterBrush}"/>
+              <Border Margin="-4" CornerRadius="14" BorderThickness="5" BorderBrush="{StaticResource CrossbarGlowMiddleBrush}"/>
+              <Border Margin="-1" CornerRadius="11" BorderThickness="2" BorderBrush="{StaticResource CrossbarGlowInnerBrush}"/>
+            </Grid>
             <Button x:Name="CrossbarHomeButton" Grid.Column="0" Style="{StaticResource CrossbarPrimaryButtonStyle}" Tag="Home" Click="CrossbarPrimary_Click">
-              <Grid><Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="32" /><RowDefinition Height="5" /></Grid.RowDefinitions><FontIcon Glyph="&#xE80F;" FontSize="34" VerticalAlignment="Bottom" /><TextBlock Grid.Row="1" Text="Home" FontSize="17" HorizontalAlignment="Center" /><Border x:Name="CrossbarHomeIndicator" Grid.Row="2" Width="48" Height="3" CornerRadius="2" Background="#FF66C8FF" Visibility="Collapsed" /></Grid>
+              <Grid><Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="26" /><RowDefinition Height="5" /></Grid.RowDefinitions><FontIcon Glyph="&#xE80F;" FontSize="30" VerticalAlignment="Bottom" /><TextBlock Grid.Row="1" Text="Home" FontSize="14" HorizontalAlignment="Center" /><Border x:Name="CrossbarHomeIndicator" Grid.Row="2" Width="48" Height="3" CornerRadius="2" Background="{StaticResource CrossbarAccentBrush}" Visibility="Collapsed" /></Grid>
             </Button>
             <Button x:Name="CrossbarGamesButton" Grid.Column="1" Style="{StaticResource CrossbarPrimaryButtonStyle}" Tag="Games" Click="CrossbarPrimary_Click">
-              <Grid><Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="32" /><RowDefinition Height="5" /></Grid.RowDefinitions><FontIcon Glyph="&#xE7FC;" FontSize="37" VerticalAlignment="Bottom" /><TextBlock Grid.Row="1" Text="Games" FontSize="17" HorizontalAlignment="Center" /><Border x:Name="CrossbarGamesIndicator" Grid.Row="2" Width="48" Height="3" CornerRadius="2" Background="#FF66C8FF" Visibility="Collapsed" /></Grid>
+              <Grid><Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="26" /><RowDefinition Height="5" /></Grid.RowDefinitions><FontIcon Glyph="&#xE7FC;" FontSize="32" VerticalAlignment="Bottom" /><TextBlock Grid.Row="1" Text="Games" FontSize="14" HorizontalAlignment="Center" /><Border x:Name="CrossbarGamesIndicator" Grid.Row="2" Width="48" Height="3" CornerRadius="2" Background="{StaticResource CrossbarAccentBrush}" Visibility="Collapsed" /></Grid>
             </Button>
             <Button x:Name="CrossbarAppsButton" Grid.Column="2" Style="{StaticResource CrossbarPrimaryButtonStyle}" Tag="Apps" Click="CrossbarPrimary_Click">
-              <Grid><Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="32" /><RowDefinition Height="5" /></Grid.RowDefinitions><FontIcon Glyph="&#xECAA;" FontSize="34" VerticalAlignment="Bottom" /><TextBlock Grid.Row="1" Text="Apps" FontSize="17" HorizontalAlignment="Center" /><Border x:Name="CrossbarAppsIndicator" Grid.Row="2" Width="48" Height="3" CornerRadius="2" Background="#FF66C8FF" Visibility="Collapsed" /></Grid>
+              <Grid><Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="26" /><RowDefinition Height="5" /></Grid.RowDefinitions><FontIcon Glyph="&#xECAA;" FontSize="30" VerticalAlignment="Bottom" /><TextBlock Grid.Row="1" Text="Apps" FontSize="14" HorizontalAlignment="Center" /><Border x:Name="CrossbarAppsIndicator" Grid.Row="2" Width="48" Height="3" CornerRadius="2" Background="{StaticResource CrossbarAccentBrush}" Visibility="Collapsed" /></Grid>
             </Button>
             <Button x:Name="CrossbarMediaButton" Grid.Column="3" Style="{StaticResource CrossbarPrimaryButtonStyle}" Tag="Media" Click="CrossbarPrimary_Click">
-              <Grid><Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="32" /><RowDefinition Height="5" /></Grid.RowDefinitions><FontIcon Glyph="&#xE8B2;" FontSize="34" VerticalAlignment="Bottom" /><TextBlock Grid.Row="1" Text="Media" FontSize="17" HorizontalAlignment="Center" /><Border x:Name="CrossbarMediaIndicator" Grid.Row="2" Width="48" Height="3" CornerRadius="2" Background="#FF66C8FF" Visibility="Collapsed" /></Grid>
+              <Grid><Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="26" /><RowDefinition Height="5" /></Grid.RowDefinitions><FontIcon Glyph="&#xE8B2;" FontSize="30" VerticalAlignment="Bottom" /><TextBlock Grid.Row="1" Text="Media" FontSize="14" HorizontalAlignment="Center" /><Border x:Name="CrossbarMediaIndicator" Grid.Row="2" Width="48" Height="3" CornerRadius="2" Background="{StaticResource CrossbarAccentBrush}" Visibility="Collapsed" /></Grid>
             </Button>
             <Button x:Name="CrossbarGalleryButton" Grid.Column="4" Style="{StaticResource CrossbarPrimaryButtonStyle}" Tag="Gallery" Click="CrossbarPrimary_Click">
-              <Grid><Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="32" /><RowDefinition Height="5" /></Grid.RowDefinitions><FontIcon Glyph="&#xEB9F;" FontSize="34" VerticalAlignment="Bottom" /><TextBlock Grid.Row="1" Text="Pictures" FontSize="17" HorizontalAlignment="Center" /><Border x:Name="CrossbarGalleryIndicator" Grid.Row="2" Width="48" Height="3" CornerRadius="2" Background="#FF66C8FF" Visibility="Collapsed" /></Grid>
+              <Grid><Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="26" /><RowDefinition Height="5" /></Grid.RowDefinitions><FontIcon Glyph="&#xEB9F;" FontSize="30" VerticalAlignment="Bottom" /><TextBlock Grid.Row="1" Text="Pictures" FontSize="14" HorizontalAlignment="Center" /><Border x:Name="CrossbarGalleryIndicator" Grid.Row="2" Width="48" Height="3" CornerRadius="2" Background="{StaticResource CrossbarAccentBrush}" Visibility="Collapsed" /></Grid>
             </Button>
             <Button x:Name="CrossbarLibraryButton" Grid.Column="5" Style="{StaticResource CrossbarPrimaryButtonStyle}" Tag="Library" Click="CrossbarPrimary_Click">
-              <Grid><Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="32" /><RowDefinition Height="5" /></Grid.RowDefinitions><FontIcon Glyph="&#xE896;" FontSize="34" VerticalAlignment="Bottom" /><TextBlock Grid.Row="1" Text="Downloads" FontSize="17" HorizontalAlignment="Center" /><Border x:Name="CrossbarLibraryIndicator" Grid.Row="2" Width="48" Height="3" CornerRadius="2" Background="#FF66C8FF" Visibility="Collapsed" /></Grid>
+              <Grid><Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="26" /><RowDefinition Height="5" /></Grid.RowDefinitions><FontIcon Glyph="&#xE896;" FontSize="30" VerticalAlignment="Bottom" /><TextBlock Grid.Row="1" Text="Downloads" FontSize="14" HorizontalAlignment="Center" /><Border x:Name="CrossbarLibraryIndicator" Grid.Row="2" Width="48" Height="3" CornerRadius="2" Background="{StaticResource CrossbarAccentBrush}" Visibility="Collapsed" /></Grid>
             </Button>
             <Button x:Name="CrossbarSettingsButton" Grid.Column="6" Style="{StaticResource CrossbarPrimaryButtonStyle}" Tag="Settings" Click="CrossbarPrimary_Click">
-              <Grid><Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="32" /><RowDefinition Height="5" /></Grid.RowDefinitions><FontIcon Glyph="&#xE713;" FontSize="35" VerticalAlignment="Bottom" /><TextBlock Grid.Row="1" Text="Settings" FontSize="17" HorizontalAlignment="Center" /><Border Grid.Row="2" Width="48" Height="3" Background="Transparent" /></Grid>
+              <Grid><Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="26" /><RowDefinition Height="5" /></Grid.RowDefinitions><FontIcon Glyph="&#xE713;" FontSize="31" VerticalAlignment="Bottom" /><TextBlock Grid.Row="1" Text="Settings" FontSize="14" HorizontalAlignment="Center" /><Border Grid.Row="2" Width="48" Height="3" Background="Transparent" /></Grid>
             </Button>
             <Button x:Name="CrossbarPowerButton" Grid.Column="7" Style="{StaticResource CrossbarPrimaryButtonStyle}" Tag="Power" Click="CrossbarPrimary_Click">
-              <Grid><Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="32" /><RowDefinition Height="5" /></Grid.RowDefinitions><FontIcon Glyph="&#xE7E8;" FontSize="35" VerticalAlignment="Bottom" /><TextBlock Grid.Row="1" Text="Power" FontSize="17" HorizontalAlignment="Center" /><Border Grid.Row="2" Width="48" Height="3" Background="Transparent" /></Grid>
+              <Grid><Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="26" /><RowDefinition Height="5" /></Grid.RowDefinitions><FontIcon Glyph="&#xE7E8;" FontSize="31" VerticalAlignment="Bottom" /><TextBlock Grid.Row="1" Text="Power" FontSize="14" HorizontalAlignment="Center" /><Border Grid.Row="2" Width="48" Height="3" Background="Transparent" /></Grid>
             </Button>
           </Grid>
-          <Border Grid.Row="1" Height="1" VerticalAlignment="Bottom" Background="#34447263" />
+          <Border Grid.Row="1" Height="1" VerticalAlignment="Bottom" Background="{StaticResource CrossbarBorderBrush}" />
         </Grid>
 
-        <Grid Grid.Row="1" Margin="72,30,72,24" ColumnSpacing="34">
+        <Grid Grid.Row="1" Margin="56,24,40,18" ColumnSpacing="0">
           <Grid.ColumnDefinitions><ColumnDefinition x:Name="CrossbarRailColumn" Width="390" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
           <StackPanel x:Name="CrossbarGamesRail" Spacing="4" Margin="0,15,0,0">
             <Button x:Name="CrossbarContinueButton" Style="{StaticResource CrossbarRailButtonStyle}" Tag="continue" Click="CrossbarSecondary_Click">
@@ -351,24 +401,24 @@
 
           <ScrollViewer x:Name="CrossbarLibraryContent" Grid.Column="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Hidden">
             <StackPanel Spacing="10">
-              <TextBlock x:Name="CrossbarFeaturedHeading" Text="CONTINUE PLAYING" FontSize="13" CharacterSpacing="220" Foreground="#FF71BFFF" />
-              <Button x:Name="CrossbarFeaturedButton" Padding="0" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Stretch" Click="CrossbarFeatured_Click">
-                <controls:NexaCrossbarFeaturedCard x:Name="CrossbarFeaturedCard" />
+              <TextBlock x:Name="CrossbarFeaturedHeading" Text="CONTINUE PLAYING" FontSize="13" CharacterSpacing="220" Foreground="{StaticResource CrossbarAccentBrush}" />
+              <Button x:Name="CrossbarFeaturedButton" Width="720" MaxWidth="{Binding ActualWidth, ElementName=CrossbarLibraryContent}" HorizontalAlignment="Left" Padding="0" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Stretch" Click="CrossbarFeatured_Click">
+                <controls:NexaCrossbarFeaturedCard x:Name="CrossbarFeaturedCard" OptionsRequested="CrossbarFeatured_OptionsRequested" />
               </Button>
-              <TextBlock x:Name="CrossbarQuickPicksTitle" Text="QUICK PICKS" Margin="0,16,0,0" FontSize="13" CharacterSpacing="220" Foreground="#FF71BFFF" />
-              <ListView x:Name="CrossbarQuickPicksList" Height="236" SelectionMode="None" IsItemClickEnabled="True" ItemClick="Card_ItemClick" ScrollViewer.HorizontalScrollMode="Enabled" ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollMode="Disabled">
+              <TextBlock x:Name="CrossbarQuickPicksTitle" Text="RECENTLY USED" Margin="0,22,0,0" FontSize="13" CharacterSpacing="220" Foreground="{StaticResource CrossbarAccentBrush}" />
+              <ListView x:Name="CrossbarQuickPicksList" Height="264" Margin="-10,-4,0,0" Padding="10,6,10,6" SelectionMode="Single" SelectionChanged="CrossbarQuickPicks_SelectionChanged" GotFocus="CrossbarQuickPicks_GotFocus" IsItemClickEnabled="True" ItemClick="Card_ItemClick" ScrollViewer.HorizontalScrollMode="Enabled" ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollMode="Disabled">
                 <ListView.ItemsPanel><ItemsPanelTemplate><ItemsStackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListView.ItemsPanel>
-                <ListView.ItemContainerStyle><Style TargetType="ListViewItem" BasedOn="{StaticResource CrossbarCardItemStyle}" /></ListView.ItemContainerStyle>
-                <ListView.ItemTemplate><DataTemplate x:DataType="vm:CardViewModel"><controls:NexaCrossbarPosterCard Card="{x:Bind}" /></DataTemplate></ListView.ItemTemplate>
+                <ListView.ItemContainerStyle><Style TargetType="ListViewItem" BasedOn="{StaticResource CrossbarPosterItemStyle}" /></ListView.ItemContainerStyle>
+                <ListView.ItemTemplate><DataTemplate x:DataType="vm:CardViewModel"><controls:NexaCrossbarPosterCard Card="{x:Bind}" OptionsRequested="CrossbarPoster_OptionsRequested" /></DataTemplate></ListView.ItemTemplate>
               </ListView>
-              <TextBlock x:Name="CrossbarEmptyText" Text="No items match this view yet." Margin="0,28,0,0" FontSize="18" Foreground="#FF9AAAC1" Visibility="Collapsed" />
+              <TextBlock x:Name="CrossbarEmptyText" Text="No items match this view yet." Margin="0,28,0,0" FontSize="18" Foreground="{StaticResource CrossbarMutedBrush}" Visibility="Collapsed" />
             </StackPanel>
           </ScrollViewer>
 
           <Grid x:Name="CrossbarMediaContent" Grid.Column="1" Visibility="Collapsed">
             <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
             <StackPanel Spacing="4">
-              <TextBlock Text="MEDIA" FontSize="13" CharacterSpacing="220" Foreground="#FF71BFFF" />
+              <TextBlock Text="MEDIA" FontSize="13" CharacterSpacing="220" Foreground="{StaticResource CrossbarAccentBrush}" />
               <TextBlock Text="Streaming, local video and recent media" FontSize="24" FontWeight="SemiBold" />
             </StackPanel>
             <ScrollViewer Grid.Row="1" Margin="0,16,0,0" VerticalScrollBarVisibility="Hidden">
@@ -377,11 +427,11 @@
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:MediaHubDisplayRowViewModel">
                       <StackPanel Spacing="9" Margin="0,0,0,20">
-                        <TextBlock Text="{x:Bind Title}" FontSize="18" CharacterSpacing="80" Foreground="#FFB8C9DF" />
+                        <TextBlock Text="{x:Bind Title}" FontSize="18" CharacterSpacing="80" Foreground="{StaticResource CrossbarMutedBrush}" />
                         <ListView ItemsSource="{x:Bind LibraryItems}" SelectionMode="None" IsItemClickEnabled="True" ItemClick="Card_ItemClick" ScrollViewer.HorizontalScrollMode="Enabled" ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollMode="Disabled">
                           <ListView.ItemsPanel><ItemsPanelTemplate><ItemsStackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListView.ItemsPanel>
                           <ListView.ItemContainerStyle><Style TargetType="ListViewItem" BasedOn="{StaticResource CrossbarCardItemStyle}" /></ListView.ItemContainerStyle>
-                          <ListView.ItemTemplate><DataTemplate x:DataType="vm:CardViewModel"><controls:NexaCrossbarPosterCard Card="{x:Bind}" /></DataTemplate></ListView.ItemTemplate>
+                          <ListView.ItemTemplate><DataTemplate x:DataType="vm:CardViewModel"><controls:NexaCrossbarPosterCard Card="{x:Bind}" OptionsRequested="CrossbarPoster_OptionsRequested" /></DataTemplate></ListView.ItemTemplate>
                         </ListView>
                         <ListView ItemsSource="{x:Bind GalleryItems}" SelectionMode="None" IsItemClickEnabled="True" ItemClick="GalleryCard_ItemClick" ScrollViewer.HorizontalScrollMode="Enabled" ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollMode="Disabled">
                           <ListView.ItemsPanel><ItemsPanelTemplate><ItemsStackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListView.ItemsPanel>
@@ -400,7 +450,7 @@
           <Grid x:Name="CrossbarGalleryContent" Grid.Column="1" Visibility="Collapsed">
             <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
             <Grid>
-              <StackPanel Spacing="4"><TextBlock Text="PICTURES" FontSize="13" CharacterSpacing="220" Foreground="#FF71BFFF" /><TextBlock Text="Gallery" FontSize="24" FontWeight="SemiBold" /></StackPanel>
+              <StackPanel Spacing="4"><TextBlock Text="PICTURES" FontSize="13" CharacterSpacing="220" Foreground="{StaticResource CrossbarAccentBrush}" /><TextBlock Text="Gallery" FontSize="24" FontWeight="SemiBold" /></StackPanel>
               <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
                 <AutoSuggestBox Width="250" PlaceholderText="Search pictures" TextChanged="GallerySearch_TextChanged" QueryIcon="Find" />
                 <ComboBox Width="125" SelectedIndex="0" SelectionChanged="GalleryView_SelectionChanged"><x:String>Home</x:String><x:String>Timeline</x:String><x:String>Folders</x:String><x:String>Grid</x:String><x:String>Albums</x:String></ComboBox>
@@ -415,7 +465,7 @@
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:GalleryRowViewModel">
                       <StackPanel Spacing="9" Margin="0,0,0,18">
-                        <TextBlock Text="{x:Bind Title}" FontSize="18" CharacterSpacing="80" Foreground="#FFB8C9DF" />
+                        <TextBlock Text="{x:Bind Title}" FontSize="18" CharacterSpacing="80" Foreground="{StaticResource CrossbarMutedBrush}" />
                         <ListView ItemsSource="{x:Bind Items}" SelectionMode="None" IsItemClickEnabled="True" ItemClick="GalleryCard_ItemClick" ScrollViewer.HorizontalScrollMode="Enabled" ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollMode="Disabled">
                           <ListView.ItemsPanel><ItemsPanelTemplate><ItemsStackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListView.ItemsPanel>
                           <ListView.ItemContainerStyle><Style TargetType="ListViewItem" BasedOn="{StaticResource CrossbarCardItemStyle}" /></ListView.ItemContainerStyle>
@@ -431,7 +481,7 @@
 
           <Grid x:Name="CrossbarCollectionsContent" Grid.Column="1" Visibility="Collapsed" AutomationProperties.Name="My Stuff">
             <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-            <Grid><StackPanel Spacing="4"><TextBlock Text="MY STUFF" FontSize="13" CharacterSpacing="220" Foreground="#FF71BFFF" /><TextBlock Text="Shelves, progress, and favorites" FontSize="24" FontWeight="SemiBold" /></StackPanel><StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right"><Button Content="Create Shelf" Click="CreateCollection_Click" /><Button Content="Import / Export" Click="InterfaceTransfer_Click" /></StackPanel></Grid>
+            <Grid><StackPanel Spacing="4"><TextBlock Text="MY STUFF" FontSize="13" CharacterSpacing="220" Foreground="{StaticResource CrossbarAccentBrush}" /><TextBlock Text="Shelves, progress, and favorites" FontSize="24" FontWeight="SemiBold" /></StackPanel><StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right"><Button Content="Create Shelf" Click="CreateCollection_Click" /><Button Content="Import / Export" Click="InterfaceTransfer_Click" /></StackPanel></Grid>
             <ScrollViewer Grid.Row="1" Margin="0,16,0,0"><StackPanel Spacing="18">
               <TextBlock Text="Personal Shelves" FontSize="20" FontWeight="SemiBold" />
               <GridView ItemsSource="{x:Bind CustomizationViewModel.PersonalShelfCards, Mode=OneWay}" IsItemClickEnabled="True" ItemClick="Collection_ItemClick" SelectionMode="None"><GridView.ItemTemplate><DataTemplate x:DataType="vm:CollectionCardViewModel"><controls:NexaCollectionCard Card="{x:Bind}" /></DataTemplate></GridView.ItemTemplate></GridView>

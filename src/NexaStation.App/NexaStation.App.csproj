@@ -15,7 +15,7 @@
     <AppxPackageSigningEnabled Condition="'$(PackageCertificateThumbprint)' != ''">true</AppxPackageSigningEnabled>
     <AppxBundle>Never</AppxBundle>
     <GenerateAppInstallerFile>false</GenerateAppInstallerFile>
-    <ApplicationIcon />
+    <ApplicationIcon>Assets\NexaStation.ico</ApplicationIcon>
     <WindowsAppSDKSelfContained Condition="'$(PublishSelfContainedApp)' == 'true'">true</WindowsAppSDKSelfContained>
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
   </PropertyGroup>

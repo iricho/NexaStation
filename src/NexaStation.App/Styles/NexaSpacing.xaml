@@ -13,6 +13,6 @@
   <sys:Double x:Key="NexaSpace64">64</sys:Double>
   <CornerRadius x:Key="NexaRadiusSmall">6</CornerRadius>
   <CornerRadius x:Key="NexaRadiusMedium">10</CornerRadius>
-  <CornerRadius x:Key="NexaRadiusLarge">16</CornerRadius>
-  <CornerRadius x:Key="NexaRadiusHero">18</CornerRadius>
+  <CornerRadius x:Key="NexaRadiusLarge">8</CornerRadius>
+  <CornerRadius x:Key="NexaRadiusHero">14</CornerRadius>
 </ResourceDictionary>

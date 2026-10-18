@@ -1,5 +1,25 @@
 # Changelog
 
+## Appearance and scrolling overhaul - Unreleased
+
+- Refresh Nexa with midnight surfaces, teal accents, clearer typography, navigation states, card borders, and consistent toolbar styling.
+- Give Library a bounded, independently scrolling results grid with stationary search and filters; restore mouse-wheel and keyboard scrolling after visiting Home.
+- Size cards evenly across available columns and use the actual column count for directional focus navigation.
+- Keep artwork inside card bounds so portrait covers cannot clip Home captions; reapply Home sizing after dashboard refreshes.
+- Update existing shared brushes during theme changes and provide readable light, dark, and high-contrast surface palettes.
+- Add layout and contrast regression coverage; see `docs/appearance-overhaul.md` for verification details.
+
+## Library and reliability overhaul - Unreleased
+
+- Keep library search active across sort, filter, favorite, and refresh actions without changing Home content.
+- Add library result counts, clear filters, loading feedback, empty states, and an inline retry action.
+- Load libraries beyond the first 1,000 items using stable paging; batch related database reads in groups of 200.
+- Serialize dashboard and Gallery refreshes; run debounced Gallery search on the UI context and publish its rows only after a successful load.
+- Apply hidden-item and guest restrictions to pinned and Dynamic Shelf rows on Home.
+- Recalculate card sizing when results change and allow a single column in narrow layouts; wrap empty-state text within available space.
+- Accept newer stable .NET 10 SDK feature bands for development.
+- Add regression coverage for search state, filtering, deterministic ordering, paging, cancellation, and batch hydration.
+
 ## Phase 13.5 (foundation)
 
 - Replaced the flat Settings flyout entries with a shared 20-category descriptor catalog, deterministic search, breadcrumbs, deep-link focus, section reset metadata, and separated advanced/recovery areas.

@@ -1,9 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Style x:Key="SectionToggleStyle" TargetType="ToggleButton" BasedOn="{StaticResource NexaFocusableControlStyle}">
-    <Setter Property="Background" Value="#00171C28" /><Setter Property="BorderThickness" Value="0,0,0,3" /><Setter Property="BorderBrush" Value="{StaticResource NexaAccentBrush}" /><Setter Property="CornerRadius" Value="24" /><Setter Property="Padding" Value="16,10" /><Setter Property="MinWidth" Value="88" /><Setter Property="MinHeight" Value="48" /><Setter Property="FontSize" Value="15" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{StaticResource NexaMutedTextBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Padding" Value="16,10" />
+    <Setter Property="MinWidth" Value="88" />
+    <Setter Property="MinHeight" Value="48" />
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ToggleButton">
+          <Grid x:Name="LayoutRoot">
+            <VisualStateManager.VisualStateGroups>
+              <VisualStateGroup x:Name="CommonStates">
+                <VisualState x:Name="Normal" />
+                <VisualState x:Name="PointerOver"><VisualState.Setters><Setter Target="Surface.Background" Value="{StaticResource NexaElevatedBrush}" /><Setter Target="Presenter.Foreground" Value="{StaticResource NexaTextBrush}" /></VisualState.Setters></VisualState>
+                <VisualState x:Name="Pressed"><VisualState.Setters><Setter Target="Surface.Background" Value="{StaticResource NexaAccentTintBrush}" /></VisualState.Setters></VisualState>
+                <VisualState x:Name="Disabled"><VisualState.Setters><Setter Target="LayoutRoot.Opacity" Value="0.4" /></VisualState.Setters></VisualState>
+                <VisualState x:Name="Checked"><VisualState.Setters><Setter Target="Surface.Background" Value="{StaticResource NexaAccentTintBrush}" /><Setter Target="Surface.BorderBrush" Value="{StaticResource NexaAccentBorderBrush}" /><Setter Target="Presenter.Foreground" Value="{StaticResource NexaAccentBrush}" /><Setter Target="SelectionMark.Opacity" Value="1" /></VisualState.Setters></VisualState>
+                <VisualState x:Name="CheckedPointerOver"><VisualState.Setters><Setter Target="Surface.Background" Value="{StaticResource NexaElevatedBrush}" /><Setter Target="Surface.BorderBrush" Value="{StaticResource NexaAccentBrush}" /><Setter Target="Presenter.Foreground" Value="{StaticResource NexaAccentBrush}" /><Setter Target="SelectionMark.Opacity" Value="1" /></VisualState.Setters></VisualState>
+                <VisualState x:Name="CheckedPressed"><VisualState.Setters><Setter Target="Surface.Background" Value="{StaticResource NexaAccentTintBrush}" /><Setter Target="Surface.BorderBrush" Value="{StaticResource NexaAccentBrush}" /><Setter Target="Presenter.Foreground" Value="{StaticResource NexaAccentBrush}" /><Setter Target="SelectionMark.Opacity" Value="1" /></VisualState.Setters></VisualState>
+                <VisualState x:Name="CheckedDisabled"><VisualState.Setters><Setter Target="LayoutRoot.Opacity" Value="0.4" /><Setter Target="SelectionMark.Opacity" Value="1" /></VisualState.Setters></VisualState>
+              </VisualStateGroup>
+            </VisualStateManager.VisualStateGroups>
+            <Border x:Name="Surface" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}">
+              <ContentPresenter x:Name="Presenter" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" Foreground="{TemplateBinding Foreground}" Padding="{TemplateBinding Padding}" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+            </Border>
+            <Border x:Name="SelectionMark" Width="20" Height="3" CornerRadius="2" VerticalAlignment="Bottom" Margin="0,0,0,2" Background="{StaticResource NexaAccentBrush}" Opacity="0" IsHitTestVisible="False" />
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
   </Style>
   <Style x:Key="ChromeIconButtonStyle" TargetType="Button" BasedOn="{StaticResource NexaFocusableControlStyle}">
-    <Setter Property="Width" Value="44" /><Setter Property="Height" Value="44" /><Setter Property="Padding" Value="0" /><Setter Property="CornerRadius" Value="22" /><Setter Property="Background" Value="#1FFFFFFF" /><Setter Property="BorderBrush" Value="{StaticResource NexaCardBorderBrush}" /><Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Width" Value="44" /><Setter Property="Height" Value="44" /><Setter Property="Padding" Value="0" /><Setter Property="CornerRadius" Value="12" /><Setter Property="Background" Value="{StaticResource NexaElevatedBrush}" /><Setter Property="BorderBrush" Value="{StaticResource NexaCardBorderBrush}" /><Setter Property="BorderThickness" Value="1" />
   </Style>
 </ResourceDictionary>

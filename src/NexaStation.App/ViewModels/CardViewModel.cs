@@ -26,7 +26,7 @@ public sealed class CardViewModel : ObservableObject
 
     public CardViewModel(LibraryItem item,string glyph,bool isFeatured=false,double width=300,double height=166,CardStyle? presentationStyle=null,CardSize presentationSize=CardSize.Medium,IArtworkResolver? artworkResolver=null,IContentCardPresentationResolver? presentationResolver=null,IApplicationVisualResolver? applicationVisualResolver=null,NavigationSection currentPage=NavigationSection.Home,string? dashboardRow=null,double viewportWidth=1920)
     {
-        Item=item;Glyph=glyph;IsFeatured=isFeatured;_artworkResolver=artworkResolver;_applicationVisualResolver=applicationVisualResolver;
+        CurrentPage=currentPage;Item=item;Glyph=glyph;IsFeatured=isFeatured;_artworkResolver=artworkResolver;_applicationVisualResolver=applicationVisualResolver;
         NexaStation.Core.ContentCardPresentation resolved=presentationResolver?.Resolve(new(item.ContentType,currentPage,item.LaunchTarget?.ProviderId,dashboardRow,presentationStyle?.ToString(),viewportWidth,item.CoverAsset is not null,item.ContentType==ContentType.Application&&item.CoverAsset is not null,IsStreamingService:item.ContentType==ContentType.Media))??DefaultPresentation(item,presentationStyle,viewportWidth);
         double sizeScale=presentationSize switch{CardSize.Small=>.82,CardSize.Large=>1.18,_=>1};Width=isFeatured?width:resolved.Width*sizeScale;Height=isFeatured?height:resolved.Height*sizeScale;_displayWidth=Width;_displayHeight=Height;
         _artwork=Image(item.CoverAsset?.LocalPath,(int)Width);
@@ -37,6 +37,34 @@ public sealed class CardViewModel : ObservableObject
     }
 
     public LibraryItem Item{get;}public string Id=>Item.Id;public string Title=>Item.Title;public string Subtitle=>Item.Subtitle??string.Empty;public string Description=>Item.Description??string.Empty;public ContentType ContentType=>Item.ContentType;public bool IsApplication=>Item.ContentType==ContentType.Application;public bool IsGame=>Item.ContentType==ContentType.Game;public bool IsFavorite=>Item.Favorite;
+    public NavigationSection CurrentPage { get; }
+    public Visibility LibraryActionsVisibility => CurrentPage is NavigationSection.Games or NavigationSection.Library ? Visibility.Visible : Visibility.Collapsed;
+    private bool _isLibrarySelected;
+    public bool IsLibrarySelected { get=>_isLibrarySelected; set { if(SetProperty(ref _isLibrarySelected,value))OnPropertyChanged(nameof(LibraryBorderBrush)); } }
+    public Brush LibraryBorderBrush => (Brush)Application.Current.Resources[IsLibrarySelected ? "NexaAccentBrush" : "NexaCardBorderBrush"];
+    public string FavoriteSymbol => IsFavorite ? "♥" : "♡";
+    private bool _isCrossbarSelected;
+    public bool IsCrossbarSelected
+    {
+        get => _isCrossbarSelected;
+        set
+        {
+            if (!SetProperty(ref _isCrossbarSelected, value)) return;
+            OnPropertyChanged(nameof(CrossbarWidth));
+            OnPropertyChanged(nameof(CrossbarHeight));
+            OnPropertyChanged(nameof(CrossbarSelectionVisibility));
+        }
+    }
+    public double CrossbarWidth => IsCrossbarSelected ? 164 : 144;
+    public double CrossbarHeight => IsCrossbarSelected ? 244 : 224;
+    public Visibility CrossbarSelectionVisibility => IsCrossbarSelected ? Visibility.Visible : Visibility.Collapsed;
+    public Stretch CrossbarArtworkStretch => IsApplication ? Stretch.Uniform : Stretch.UniformToFill;
+    public Thickness CrossbarArtworkPadding => new(IsApplication ? 16 : 0);
+    public string CrossbarPlatformLabel => Item.LaunchTarget?.EmulatedPlatformId?.ToUpperInvariant() ?? (Item.LaunchTarget?.ProviderId?.ToLowerInvariant() switch
+    {
+        "steam" => "Steam", "epic" => "Epic Games", "gog" => "GOG", "ea" => "EA", "battlenet" => "Battle.net",
+        "windows" or "windows-apps" => "Windows", "emulation" => "Emulation", _ => IsApplication ? "Windows" : ProviderLabel,
+    });
     public string Playtime=>Item.TotalPlaytimeSeconds<60?(Item.ContentType==ContentType.Application?"Not used yet":"Not played yet"):TimeSpan.FromSeconds(Item.TotalPlaytimeSeconds).ToString(@"h\:mm",CultureInfo.InvariantCulture)+(Item.ContentType==ContentType.Application?" used":" played");
     public BitmapImage? Artwork{get=>_artwork;private set{if(SetProperty(ref _artwork,value)){OnPropertyChanged(nameof(HasArtwork));OnPropertyChanged(nameof(ArtworkVisibility));OnPropertyChanged(nameof(FallbackVisibility));}}}
     public BitmapImage? BackgroundArtwork{get=>_backgroundArtwork;private set=>SetProperty(ref _backgroundArtwork,value);}

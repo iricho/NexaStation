@@ -16,7 +16,7 @@ public sealed class NexaSettingsView : Grid
 
     public NexaSettingsView(SettingsPresentationContext context)
     {
-        _context=context;Background=new SolidColorBrush(Color.FromArgb(255,9,11,19));Padding=new Thickness(48,30,48,30);RowDefinitions.Add(new(){Height=GridLength.Auto});RowDefinitions.Add(new(){Height=new GridLength(1,GridUnitType.Star)});
+        _context=context;Background=Application.Current.Resources.TryGetValue("NexaBackgroundBrush",out object? backdrop)&&backdrop is Brush brush?brush:new SolidColorBrush(Color.FromArgb(255,9,11,19));Padding=new Thickness(48,30,48,30);RowDefinitions.Add(new(){Height=GridLength.Auto});RowDefinitions.Add(new(){Height=new GridLength(1,GridUnitType.Star)});
         Grid header=new(){ColumnSpacing=12};header.ColumnDefinitions.Add(new(){Width=new GridLength(1,GridUnitType.Star)});header.ColumnDefinitions.Add(new(){Width=GridLength.Auto});StackPanel title=new(){Spacing=4,Children={new TextBlock{Text="Settings",FontSize=34,FontWeight=Microsoft.UI.Text.FontWeights.SemiBold},_breadcrumb,_search}};header.Children.Add(title);Button close=new(){Content="Back",MinWidth=100,VerticalAlignment=VerticalAlignment.Top};close.Click+=async(_,_)=>await _context.CloseAsync();Grid.SetColumn(close,1);header.Children.Add(close);Children.Add(header);
         ScrollViewer scroller=new(){Content=_content,Margin=new Thickness(0,24,0,0)};SetRow(scroller,1);Children.Add(scroller);_search.TextChanged+=SearchChanged;ShowLanding();
         if(context.InitialSettingId is { } id)OpenDescriptor(id);

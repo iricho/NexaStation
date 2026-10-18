@@ -8,8 +8,12 @@
     <Grid x:Name="FallbackLayer">
       <Ellipse Width="160" Height="160" Margin="0,-50,-42,0" HorizontalAlignment="Right" VerticalAlignment="Top" Fill="#16FFFFFF" />
       <Ellipse Width="120" Height="120" Margin="-44,0,0,-50" HorizontalAlignment="Left" VerticalAlignment="Bottom" Fill="#0FFFFFFF" />
-      <TextBlock Text="{x:Bind FallbackText, Mode=OneWay}" FontSize="52" FontWeight="Bold" Opacity="0.72" HorizontalAlignment="Center" VerticalAlignment="Center" />
+      <TextBlock Text="{x:Bind FallbackText, Mode=OneWay}" FontSize="44" FontWeight="SemiBold" Foreground="{StaticResource NexaArtworkTextBrush}" Opacity="0.72" HorizontalAlignment="Center" VerticalAlignment="Center" />
     </Grid>
-    <Image x:Name="ArtworkImage" Source="{x:Bind Source, Mode=OneWay}" Stretch="{x:Bind ArtworkStretch, Mode=OneWay}" ImageFailed="ArtworkImage_ImageFailed" />
+    <Border x:Name="ArtworkImage">
+      <Border.Background>
+        <ImageBrush ImageSource="{x:Bind Source, Mode=OneWay}" Stretch="{x:Bind ArtworkStretch, Mode=OneWay}" ImageFailed="ArtworkImage_ImageFailed" />
+      </Border.Background>
+    </Border>
   </Grid>
 </UserControl>

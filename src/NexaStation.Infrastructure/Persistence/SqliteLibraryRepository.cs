@@ -20,13 +20,14 @@ public sealed class SqliteLibraryRepository(ISqliteConnectionFactory factory) : 
         if (!string.IsNullOrWhiteSpace(query.SearchText)) { predicates.Add("(Title LIKE $search ESCAPE '\\' OR Subtitle LIKE $search ESCAPE '\\' OR Description LIKE $search ESCAPE '\\')"); command.Parameters.AddWithValue("$search", $"%{EscapeLike(query.SearchText.Trim())}%"); }
         if (query.InstalledOnly) predicates.Add("EXISTS(SELECT 1 FROM LaunchTargets t WHERE t.LibraryItemId=LibraryItems.Id AND ((t.ExecutablePath IS NOT NULL AND t.ExecutablePath<>'') OR (t.ShortcutPath IS NOT NULL AND t.ShortcutPath<>'') OR t.Uri IS NOT NULL))");
         string order = query.SortMode switch { LibrarySortMode.RecentlyAdded => "AddedAtUtc DESC", LibrarySortMode.RecentlyLaunched => "LastLaunchedAtUtc IS NULL, LastLaunchedAtUtc DESC", LibrarySortMode.MostPlayed => "TotalPlaytimeSeconds DESC, SortTitle", _ => "SortTitle COLLATE NOCASE" };
-        command.CommandText = $"SELECT * FROM LibraryItems{(predicates.Count == 0 ? "" : " WHERE " + string.Join(" AND ", predicates))} ORDER BY {order} LIMIT $max;";
+        command.CommandText = $"SELECT * FROM LibraryItems{(predicates.Count == 0 ? "" : " WHERE " + string.Join(" AND ", predicates))} ORDER BY {order}, Id LIMIT $max OFFSET $offset;";
         command.Parameters.AddWithValue("$max", Math.Clamp(query.MaximumResults, 1, 5000));
+        command.Parameters.AddWithValue("$offset", Math.Max(0, query.Offset));
         List<LibraryItem> items = [];
         await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) items.Add(ReadItem(reader));
         await reader.DisposeAsync().ConfigureAwait(false);
-        for (int index = 0; index < items.Count; index++) items[index] = await HydrateAsync(connection, items[index], cancellationToken).ConfigureAwait(false);
+        await HydrateBatchAsync(connection, items, cancellationToken).ConfigureAwait(false);
         return items;
     }
 
@@ -101,10 +102,75 @@ public sealed class SqliteLibraryRepository(ISqliteConnectionFactory factory) : 
 
     private static async Task<LibraryItem> HydrateAsync(SqliteConnection connection, LibraryItem item, CancellationToken ct)
     {
-        List<LaunchTarget> targets=[]; await using(SqliteCommand c=connection.CreateCommand()){c.CommandText="SELECT * FROM LaunchTargets WHERE LibraryItemId=$id ORDER BY CreatedAtUtc;";c.Parameters.AddWithValue("$id",item.Id);await using SqliteDataReader r=await c.ExecuteReaderAsync(ct).ConfigureAwait(false);while(await r.ReadAsync(ct).ConfigureAwait(false)){string? uri=Nullable(r,"Uri");targets.Add(new LaunchTarget((LaunchType)r.GetInt32(r.GetOrdinal("LaunchType")),Nullable(r,"ExecutablePath"),Nullable(r,"WorkingDirectory"),Nullable(r,"Arguments"),uri is null?null:new Uri(uri),Nullable(r,"ExpectedProcessName"),r.GetInt32(r.GetOrdinal("HideFrontendWhileRunning"))!=0,r.GetInt32(r.GetOrdinal("RestoreFrontendAfterExit"))!=0){Id=r.GetString(r.GetOrdinal("Id")),LibraryItemId=item.Id,Name=r.GetString(r.GetOrdinal("Name")),ShortcutPath=Nullable(r,"ShortcutPath"),ProviderId=Nullable(r,"ProviderId"),IsEnabled=r.GetInt32(r.GetOrdinal("IsEnabled"))!=0,UserManaged=r.GetInt32(r.GetOrdinal("UserManaged"))!=0,EmulatedGameSourceId=Nullable(r,"EmulatedGameSourceId"),EmulatorInstallationId=Nullable(r,"EmulatorInstallationId"),LaunchProfileId=Nullable(r,"LaunchProfileId"),ArgumentList=JsonList(Nullable(r,"ArgumentListJson")),EnvironmentOverrides=JsonDictionary(Nullable(r,"EnvironmentOverridesJson")),WindowsApplicationSourceId=Nullable(r,"WindowsApplicationSourceId"),WindowsLaunchMethod=NullableInt(r,"WindowsLaunchMethod") is int method?(WindowsLaunchMethod)method:null,AppUserModelId=Nullable(r,"AppUserModelId"),ShellParsingPath=Nullable(r,"ShellParsingPath"),TrackingMode=(ApplicationTrackingMode)r.GetInt32(r.GetOrdinal("TrackingMode")),ExpectedExecutablePath=Nullable(r,"ExpectedExecutablePath"),ExpectedWindowClass=Nullable(r,"ExpectedWindowClass"),DetectionTimeoutSeconds=r.GetInt32(r.GetOrdinal("DetectionTimeoutSeconds")),ExitGracePeriodSeconds=r.GetInt32(r.GetOrdinal("ExitGracePeriodSeconds")),CreatedAtUtc=DateTime.Parse(r.GetString(r.GetOrdinal("CreatedAtUtc")),null,DateTimeStyles.RoundtripKind),UpdatedAtUtc=DateTime.Parse(r.GetString(r.GetOrdinal("UpdatedAtUtc")),null,DateTimeStyles.RoundtripKind)});}}
-        Asset? cover=null,background=null; await using(SqliteCommand c=connection.CreateCommand()){c.CommandText="SELECT * FROM Assets WHERE LibraryItemId=$id;";c.Parameters.AddWithValue("$id",item.Id);await using SqliteDataReader r=await c.ExecuteReaderAsync(ct).ConfigureAwait(false);while(await r.ReadAsync(ct).ConfigureAwait(false)){Asset a=new(r.GetString(0),item.Id,(AssetType)r.GetInt32(2),r.GetString(3),r.IsDBNull(4)?null:r.GetInt32(4),r.IsDBNull(5)?null:r.GetInt32(5),r.IsDBNull(6)?null:r.GetInt64(6),DateTime.Parse(r.GetString(7),null,DateTimeStyles.RoundtripKind));if(a.AssetType is AssetType.Cover or AssetType.Icon)cover=a;if(a.AssetType==AssetType.Background)background=a;}}
-        string? category=null;bool desktop=false;await using(SqliteCommand c=connection.CreateCommand()){c.CommandText="SELECT ac.Name FROM LibraryItemApplicationCategories lc JOIN ApplicationCategories ac ON ac.Id=lc.CategoryId WHERE lc.LibraryItemId=$id AND lc.IsPrimary=1 LIMIT 1;";c.Parameters.AddWithValue("$id",item.Id);category=await c.ExecuteScalarAsync(ct).ConfigureAwait(false) as string;}await using(SqliteCommand c=connection.CreateCommand()){c.CommandText="SELECT EnableOnLaunch FROM LibraryItemDesktopControlProfiles WHERE LibraryItemId=$id;";c.Parameters.AddWithValue("$id",item.Id);object? value=await c.ExecuteScalarAsync(ct).ConfigureAwait(false);desktop=value is not null&&value is not DBNull&&Convert.ToInt32(value,CultureInfo.InvariantCulture)!=0;}
-        return item with { LaunchTargets=targets,CoverAsset=cover,BackgroundAsset=background,PrimaryCategoryName=category,DesktopControlEnabled=desktop };
+        List<LibraryItem> items = [item];
+        await HydrateBatchAsync(connection, items, ct).ConfigureAwait(false);
+        return items[0];
+    }
+
+    // Bound the number of parameters while replacing four queries per item with four per batch.
+    private static async Task HydrateBatchAsync(SqliteConnection connection, List<LibraryItem> items, CancellationToken ct)
+    {
+        const int batchSize = 200;
+        for (int start = 0; start < items.Count; start += batchSize)
+        {
+            ct.ThrowIfCancellationRequested();
+            LibraryItem[] batch = items.Skip(start).Take(batchSize).ToArray();
+            string parameters = string.Join(",", Enumerable.Range(0, batch.Length).Select(index => "$id" + index));
+            Dictionary<string, List<LaunchTarget>> targets = new(StringComparer.Ordinal);
+            Dictionary<string, Asset> covers = new(StringComparer.Ordinal);
+            Dictionary<string, Asset> backgrounds = new(StringComparer.Ordinal);
+            Dictionary<string, string> categories = new(StringComparer.Ordinal);
+            HashSet<string> desktopEnabled = new(StringComparer.Ordinal);
+
+            await using SqliteCommand command = connection.CreateCommand();
+            for (int index = 0; index < batch.Length; index++) command.Parameters.AddWithValue("$id" + index, batch[index].Id);
+            command.CommandText = $"SELECT * FROM LaunchTargets WHERE LibraryItemId IN ({parameters}) ORDER BY CreatedAtUtc, Id;";
+            await using (SqliteDataReader reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false))
+            {
+                while (await reader.ReadAsync(ct).ConfigureAwait(false))
+                {
+                    LaunchTarget target = ReadTarget(reader);
+                    if (!targets.TryGetValue(target.LibraryItemId, out List<LaunchTarget>? values)) targets[target.LibraryItemId] = values = [];
+                    values.Add(target);
+                }
+            }
+            command.CommandText = $"SELECT * FROM Assets WHERE LibraryItemId IN ({parameters}) ORDER BY rowid;";
+            await using (SqliteDataReader reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false))
+            {
+                while (await reader.ReadAsync(ct).ConfigureAwait(false))
+                {
+                    string itemId = reader.GetString(1);
+                    Asset asset = new(reader.GetString(0), itemId, (AssetType)reader.GetInt32(2), reader.GetString(3), reader.IsDBNull(4) ? null : reader.GetInt32(4), reader.IsDBNull(5) ? null : reader.GetInt32(5), reader.IsDBNull(6) ? null : reader.GetInt64(6), DateTime.Parse(reader.GetString(7), null, DateTimeStyles.RoundtripKind));
+                    if (asset.AssetType is AssetType.Cover or AssetType.Icon) covers[itemId] = asset;
+                    if (asset.AssetType == AssetType.Background) backgrounds[itemId] = asset;
+                }
+            }
+            command.CommandText = $"SELECT lc.LibraryItemId, ac.Name FROM LibraryItemApplicationCategories lc JOIN ApplicationCategories ac ON ac.Id=lc.CategoryId WHERE lc.LibraryItemId IN ({parameters}) AND lc.IsPrimary=1 ORDER BY ac.Id;";
+            await using (SqliteDataReader reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false))
+                while (await reader.ReadAsync(ct).ConfigureAwait(false)) categories.TryAdd(reader.GetString(0), reader.GetString(1));
+            command.CommandText = $"SELECT LibraryItemId FROM LibraryItemDesktopControlProfiles WHERE LibraryItemId IN ({parameters}) AND EnableOnLaunch<>0;";
+            await using (SqliteDataReader reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false))
+                while (await reader.ReadAsync(ct).ConfigureAwait(false)) desktopEnabled.Add(reader.GetString(0));
+
+            for (int index = 0; index < batch.Length; index++)
+            {
+                LibraryItem item = batch[index];
+                items[start + index] = item with
+                {
+                    LaunchTargets = targets.TryGetValue(item.Id, out List<LaunchTarget>? values) ? values : [],
+                    CoverAsset = covers.GetValueOrDefault(item.Id),
+                    BackgroundAsset = backgrounds.GetValueOrDefault(item.Id),
+                    PrimaryCategoryName = categories.GetValueOrDefault(item.Id),
+                    DesktopControlEnabled = desktopEnabled.Contains(item.Id),
+                };
+            }
+        }
+    }
+
+    private static LaunchTarget ReadTarget(SqliteDataReader r)
+    {
+        string? uri = Nullable(r, "Uri");
+        return new LaunchTarget((LaunchType)r.GetInt32(r.GetOrdinal("LaunchType")),Nullable(r,"ExecutablePath"),Nullable(r,"WorkingDirectory"),Nullable(r,"Arguments"),uri is null?null:new Uri(uri),Nullable(r,"ExpectedProcessName"),r.GetInt32(r.GetOrdinal("HideFrontendWhileRunning"))!=0,r.GetInt32(r.GetOrdinal("RestoreFrontendAfterExit"))!=0){Id=r.GetString(r.GetOrdinal("Id")),LibraryItemId=r.GetString(r.GetOrdinal("LibraryItemId")),Name=r.GetString(r.GetOrdinal("Name")),ShortcutPath=Nullable(r,"ShortcutPath"),ProviderId=Nullable(r,"ProviderId"),IsEnabled=r.GetInt32(r.GetOrdinal("IsEnabled"))!=0,UserManaged=r.GetInt32(r.GetOrdinal("UserManaged"))!=0,EmulatedGameSourceId=Nullable(r,"EmulatedGameSourceId"),EmulatorInstallationId=Nullable(r,"EmulatorInstallationId"),LaunchProfileId=Nullable(r,"LaunchProfileId"),ArgumentList=JsonList(Nullable(r,"ArgumentListJson")),EnvironmentOverrides=JsonDictionary(Nullable(r,"EnvironmentOverridesJson")),WindowsApplicationSourceId=Nullable(r,"WindowsApplicationSourceId"),WindowsLaunchMethod=NullableInt(r,"WindowsLaunchMethod") is int method?(WindowsLaunchMethod)method:null,AppUserModelId=Nullable(r,"AppUserModelId"),ShellParsingPath=Nullable(r,"ShellParsingPath"),TrackingMode=(ApplicationTrackingMode)r.GetInt32(r.GetOrdinal("TrackingMode")),ExpectedExecutablePath=Nullable(r,"ExpectedExecutablePath"),ExpectedWindowClass=Nullable(r,"ExpectedWindowClass"),DetectionTimeoutSeconds=r.GetInt32(r.GetOrdinal("DetectionTimeoutSeconds")),ExitGracePeriodSeconds=r.GetInt32(r.GetOrdinal("ExitGracePeriodSeconds")),CreatedAtUtc=DateTime.Parse(r.GetString(r.GetOrdinal("CreatedAtUtc")),null,DateTimeStyles.RoundtripKind),UpdatedAtUtc=DateTime.Parse(r.GetString(r.GetOrdinal("UpdatedAtUtc")),null,DateTimeStyles.RoundtripKind)};
     }
 
     private static string EscapeLike(string value)=>value.Replace("\\","\\\\",StringComparison.Ordinal).Replace("%","\\%",StringComparison.Ordinal).Replace("_","\\_",StringComparison.Ordinal);

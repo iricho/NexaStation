@@ -4,7 +4,7 @@ NexaStation is not yet open for public distribution because its project license 
 
 For authorized development:
 
-1. Use Windows 10 1809 or later, the .NET 10 SDK, and Visual Studio with WinUI/MSIX tooling.
+1. Use Windows 10 1809 or later, a stable .NET 10 SDK version 10.0.300 or newer, and Visual Studio with WinUI/MSIX tooling.
 2. Run `dotnet restore NexaStation.sln`.
 3. Run `dotnet build NexaStation.sln -c Release -p:Platform=x64`.
 4. Run `dotnet test NexaStation.sln -c Release -p:Platform=x64 --no-build`.
@@ -12,6 +12,8 @@ For authorized development:
 6. Add tests for migrations, recovery, provider boundaries, focus behavior, and release gates affected by a change.
 
 Never commit user databases, logs, crash reports, diagnostics ZIPs, signing certificates, package passwords, or provider-specific local paths.
+
+For a local compilation check without a signing certificate, use `dotnet build NexaStation.sln -c Debug -p:Platform=x64 -p:AppxPackageSigningEnabled=false`. This checks the WinUI application and XAML; it does not verify installation or produce a trusted release. If an SDK update reports a missing runtime pack, run restore again before building.
 
 ## Compatibility profiles
 

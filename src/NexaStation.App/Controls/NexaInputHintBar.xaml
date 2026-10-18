@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <UserControl x:Class="NexaStation.App.Controls.NexaInputHintBar" x:Name="RootControl" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="using:NexaStation.App.Controls">
-  <Grid Height="56" Padding="48,0" Background="{StaticResource NexaFooterBrush}">
+  <Grid MinHeight="36" Padding="48,0" Background="{StaticResource NexaFooterBrush}">
     <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
     <StackPanel x:Name="PrimaryHints" Orientation="Horizontal" Spacing="22" VerticalAlignment="Center" />
     <local:NexaInputHint x:Name="QuickMenuHint" Grid.Column="1" VerticalAlignment="Center" />

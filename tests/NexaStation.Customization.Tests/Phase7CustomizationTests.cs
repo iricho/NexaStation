@@ -73,7 +73,7 @@ public sealed class Phase7CustomizationTests
     [Theory,MemberData(nameof(ThemeCases))]
     public async Task ThemeRequirements61Through71(int scenario)
     {
-        MemoryCustomizationStore store=new();MemorySettings settings=new();ThemeService service=new(store,settings);IReadOnlyList<ThemeDefinition> themes=await service.GetAvailableAsync();Assert.Equal(5,themes.Count(x=>x.BuiltIn));
+        MemoryCustomizationStore store=new();MemorySettings settings=new();ThemeService service=new(store,settings);IReadOnlyList<ThemeDefinition> themes=await service.GetAvailableAsync();Assert.Equal(6,themes.Count(x=>x.BuiltIn));
         if(scenario is 1 or 4){await service.ApplyAsync("aurora");Assert.Equal("aurora",settings.Values["Interface.ThemeId"]);}
         else if(scenario==2){ThemeDefinition? preview=null;service.ThemeChanged+=(_,e)=>preview=e.Theme;await service.PreviewAsync("obsidian");Assert.Equal("obsidian",preview?.Id);}
         else if(scenario==3){await service.PreviewAsync("obsidian");await service.CancelPreviewAsync();Assert.Equal(ThemeService.DefaultThemeId,service.CurrentThemeId);}

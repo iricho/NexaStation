@@ -1,28 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <Color x:Key="NexaBackgroundColor">#090B13</Color>
-  <Color x:Key="NexaSurfaceColor">#E0171B2B</Color>
-  <Color x:Key="NexaAccentColor">#5BE0C5</Color>
+  <Color x:Key="NexaBackgroundColor">#071422</Color>
+  <Color x:Key="NexaSurfaceColor">#0D2032</Color>
+  <Color x:Key="NexaAccentColor">#35E4CF</Color>
   <SolidColorBrush x:Key="NexaBackgroundBrush" Color="{StaticResource NexaBackgroundColor}" />
   <SolidColorBrush x:Key="NexaSurfaceBrush" Color="{StaticResource NexaSurfaceColor}" />
   <SolidColorBrush x:Key="NexaAccentBrush" Color="{StaticResource NexaAccentColor}" />
-  <SolidColorBrush x:Key="NexaMutedTextBrush" Color="#B8C2D6" />
+  <SolidColorBrush x:Key="NexaMutedTextBrush" Color="#ADBCD0" />
   <SolidColorBrush x:Key="NexaInverseAccentTextBrush" Color="#07130F" />
   <SolidColorBrush x:Key="NexaArtworkCaptionBrush" Color="#C0101522" />
   <SolidColorBrush x:Key="NexaAccentBorderBrush" Color="#705BE0C5" />
   <SolidColorBrush x:Key="NexaAccentTintBrush" Color="#335BE0C5" />
   <SolidColorBrush x:Key="NexaViewerOverlayBrush" Color="#F2070910" />
   <SolidColorBrush x:Key="NexaQuickDimBrush" Color="#B0000000" />
-  <SolidColorBrush x:Key="NexaQuickPanelBrush" Color="#F0161C2B" />
+  <SolidColorBrush x:Key="NexaQuickPanelBrush" Color="#0D2032" />
   <SolidColorBrush x:Key="NexaTranslucentSurfaceBrush" Color="#28FFFFFF" />
-  <SolidColorBrush x:Key="NexaToastBrush" Color="#F21B2232" />
-  <SolidColorBrush x:Key="NexaChromeBrush" Color="#F2141822" />
-  <SolidColorBrush x:Key="NexaFooterBrush" Color="#F01A1E27" />
-  <SolidColorBrush x:Key="NexaPanelBrush" Color="#E51B2130" />
-  <SolidColorBrush x:Key="NexaCardBorderBrush" Color="#42FFFFFF" />
-  <SolidColorBrush x:Key="NexaHeroBorderBrush" Color="#708DAAFF" />
+  <SolidColorBrush x:Key="NexaToastBrush" Color="#172C42" />
+  <SolidColorBrush x:Key="NexaChromeBrush" Color="#0B192A" />
+  <SolidColorBrush x:Key="NexaFooterBrush" Color="#0B192A" />
+  <SolidColorBrush x:Key="NexaPanelBrush" Color="#0D2032" />
+  <SolidColorBrush x:Key="NexaCardBorderBrush" Color="#29465B" />
+  <SolidColorBrush x:Key="NexaHeroBorderBrush" Color="#315468" />
   <SolidColorBrush x:Key="NexaSoftWhiteBrush" Color="#F2FFFFFF" />
   <SolidColorBrush x:Key="NexaUnavailableBrush" Color="#E4EE6A73" />
   <SolidColorBrush x:Key="NexaSuccessBrush" Color="#FF57D58A" />
   <SolidColorBrush x:Key="NexaWarningBrush" Color="#FFFFC95B" />
+  <SolidColorBrush x:Key="NexaTextBrush" Color="#F2F6FD" />
+  <SolidColorBrush x:Key="NexaElevatedBrush" Color="#172C42" />
+  <SolidColorBrush x:Key="NexaArtworkTextBrush" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="NexaArtworkMutedBrush" Color="#D2DCEB" />
+  <SolidColorBrush x:Key="NexaArtworkBadgeBrush" Color="#E6101928" />
+  <SolidColorBrush x:Key="CrossbarBackgroundBrush" Color="#020816" />
+  <SolidColorBrush x:Key="CrossbarTextBrush" Color="#F2F6FD" />
+  <SolidColorBrush x:Key="CrossbarMutedBrush" Color="#B8C9DF" />
+  <SolidColorBrush x:Key="CrossbarAccentBrush" Color="#71BFFF" />
+  <SolidColorBrush x:Key="CrossbarSurfaceBrush" Color="#E807152C" />
+  <SolidColorBrush x:Key="CrossbarElevatedBrush" Color="#192D4F" />
+  <SolidColorBrush x:Key="CrossbarBorderBrush" Color="#294972" />
+  <SolidColorBrush x:Key="CrossbarOverlayBrush" Color="#B008162D" />
+  <SolidColorBrush x:Key="CrossbarSelectionBrush" Color="#DCFAFF" />
+  <SolidColorBrush x:Key="CrossbarGlowOuterBrush" Color="#184184FF" />
+  <SolidColorBrush x:Key="CrossbarGlowMiddleBrush" Color="#594184FF" />
+  <SolidColorBrush x:Key="CrossbarGlowInnerBrush" Color="#A04C96FF" />
 </ResourceDictionary>

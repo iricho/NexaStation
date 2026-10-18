@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <UserControl x:Class="NexaStation.App.Controls.NexaHomeApplicationTile" x:Name="RootControl" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="using:NexaStation.App.Controls" DataContext="{x:Bind Card, Mode=OneWay}" IsTabStop="False">
-  <Border Width="{Binding DisplayWidth}" Height="{Binding DisplayHeight}" CornerRadius="11" BorderBrush="{StaticResource NexaCardBorderBrush}" BorderThickness="1" Background="{Binding FallbackBrush}" AutomationProperties.Name="{Binding Presentation.AccessibilityName}">
+  <Border Width="{Binding DisplayWidth}" Height="{Binding DisplayHeight}" CornerRadius="8" BorderBrush="{StaticResource NexaCardBorderBrush}" BorderThickness="1" Background="{Binding FallbackBrush}" AutomationProperties.Name="{Binding Presentation.AccessibilityName}">
     <Grid>
       <local:NexaArtworkSurface Margin="21,10,21,31" Source="{Binding Artwork}" FallbackBrush="{Binding FallbackBrush}" FallbackText="{Binding FallbackInitial}" ArtworkStretch="Uniform" />
-      <Border VerticalAlignment="Bottom" Height="29" Background="#B50A0E17" Padding="6,4"><TextBlock Text="{Binding Title}" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" /></Border>
+      <Border VerticalAlignment="Bottom" Height="29" Background="#B50A0E17" Padding="6,4"><TextBlock Text="{Binding Title}" Foreground="{StaticResource NexaArtworkTextBrush}" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" /></Border>
     </Grid>
   </Border>
 </UserControl>

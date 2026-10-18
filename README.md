@@ -27,6 +27,8 @@ The five-screen Setup Assistant personalizes the local Owner profile, appearance
 
 Add games, Windows applications, web apps, media shortcuts, and custom URIs. Items can be edited, favorited, hidden, placed on Shelves, pinned, or given custom artwork. Removing an item only removes it from NexaStation; it never uninstalls the app or deletes the original file.
 
+Search keeps your query when you change views or sorting, and Clear filters restores the full visible library. Library search leaves Home unchanged. Loading and error states include a refresh action, and large libraries load in pages instead of stopping at the first 1,000 items.
+
 ### My Stuff
 
 My Stuff keeps personal organization in one place. Build mixed-content Shelves from games, apps, photos, videos, Gallery albums, and nested Shelves; use Dynamic Shelves for rule-based views; and track game progress or a video queue with clear statuses. Favorites, recently added items, and automatic provider or emulator Shelves stay separate and easy to scan.
@@ -89,6 +91,8 @@ Read [PRIVACY.md](PRIVACY.md) and [SECURITY.md](SECURITY.md) for the full bounda
 ## Getting started
 
 NexaStation currently targets Windows with C#/.NET 10, WinUI 3, and Windows App SDK 2.2.
+
+Install a stable .NET 10 SDK version 10.0.300 or newer. The repository accepts newer .NET 10 feature bands and excludes preview SDKs.
 
 ```powershell
 dotnet restore NexaStation.sln

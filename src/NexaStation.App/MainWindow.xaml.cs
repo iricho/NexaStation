@@ -371,6 +371,7 @@ public sealed partial class MainWindow : Window,IDisposable
         RegisterQuickMenuActions();
 
         InitializeComponent();
+        AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory,"Assets","NexaStation.ico"));
         NativePlayerPage.Configure(_nativeMediaPlayer,nativeMediaEngine,_windowService,_inputGlyphs);
         NativePlayerPage.CloseRequested+=OnNativePlayerCloseRequested;
         NativePlayerPage.OpenWithRequested+=OnNativePlayerOpenWithRequested;
@@ -379,6 +380,7 @@ public sealed partial class MainWindow : Window,IDisposable
         ControllerFooter.Configure(_inputGlyphs);CrossbarControllerFooter.Configure(_inputGlyphs);
         _inputService.ActionTriggered += OnInputActionTriggered;
         ViewModel.FocusRestoreRequested += OnFocusRestoreRequested;
+        ViewModel.PropertyChanged += OnDashboardPropertyChanged;
         GalleryViewModel.FocusRestoreRequested += OnGalleryFocusRestoreRequested;
         _slideshow.ItemChanged += OnSlideshowItemChanged;
         _quickMenu.StateChanged += OnQuickMenuStateChanged;
@@ -448,6 +450,31 @@ public sealed partial class MainWindow : Window,IDisposable
         if(CrossbarFeaturedCard.Card is { } card)await ShowDetailsAsync(card);
     }
 
+    private async void CrossbarFeatured_OptionsRequested(object? sender,EventArgs e)
+    {
+        if(CrossbarFeaturedCard.Card is {} card)await OpenContextMenuAsync(card,CrossbarFeaturedButton);
+    }
+
+    private async void CrossbarPoster_OptionsRequested(object? sender,EventArgs e)
+    {
+        if(sender is Controls.NexaCrossbarPosterCard { Card: {} card } control)await OpenContextMenuAsync(card,control);
+    }
+
+    private void CrossbarQuickPicks_SelectionChanged(object sender,SelectionChangedEventArgs e)
+    {
+        foreach(CardViewModel card in e.RemovedItems.OfType<CardViewModel>())card.IsCrossbarSelected=false;
+        if(CrossbarQuickPicksList.SelectedItem is not CardViewModel selected)return;
+        selected.IsCrossbarSelected=true;
+        CrossbarFeaturedCard.Card=selected;
+        ViewModel.SelectItem(selected,0);
+    }
+
+    private void CrossbarQuickPicks_GotFocus(object sender,RoutedEventArgs e)
+    {
+        if(ContextTargetFrom(e.OriginalSource as DependencyObject) is CardViewModel card)
+            CrossbarQuickPicksList.SelectedItem=card;
+    }
+
     private void RefreshCrossbarSurface()
     {
         if(!_xamlInitialized)return;
@@ -457,8 +484,9 @@ public sealed partial class MainWindow : Window,IDisposable
         bool gallery=section==NavigationSection.Gallery;
         bool collections=section==NavigationSection.Collections;
         bool specialized=media||gallery||collections;
+        CrossbarControllerFooter.Visibility=section==NavigationSection.Home?Visibility.Collapsed:Visibility.Visible;
         CrossbarGamesRail.Visibility=games?Visibility.Visible:Visibility.Collapsed;
-        CrossbarRailColumn.Width=new GridLength(games?390:0);
+        CrossbarRailColumn.Width=new GridLength(games?290:0);
         CrossbarLibraryContent.Visibility=specialized?Visibility.Collapsed:Visibility.Visible;
         CrossbarMediaContent.Visibility=media?Visibility.Visible:Visibility.Collapsed;
         CrossbarGalleryContent.Visibility=gallery?Visibility.Visible:Visibility.Collapsed;
@@ -473,24 +501,32 @@ public sealed partial class MainWindow : Window,IDisposable
             (CrossbarGalleryButton,CrossbarGalleryIndicator,NavigationSection.Gallery),
             (CrossbarLibraryButton,CrossbarLibraryIndicator,NavigationSection.Library),
         ];
+        Color crossbarAccent=((SolidColorBrush)Application.Current.Resources["CrossbarAccentBrush"]).Color;
+        Brush crossbarText=(Brush)Application.Current.Resources["CrossbarTextBrush"];
+        Brush crossbarMuted=(Brush)Application.Current.Resources["CrossbarMutedBrush"];
         foreach((Button button,Border indicator,NavigationSection target) in navigation)
         {
             bool selected=target==section;
-            button.Foreground=new SolidColorBrush(selected?Color.FromArgb(255,255,255,255):Color.FromArgb(255,129,144,172));
-            button.Background=new SolidColorBrush(selected?Color.FromArgb(24,78,156,255):Color.FromArgb(0,0,0,0));
+            if(selected)Grid.SetColumn(CrossbarNavigationGlow,Grid.GetColumn(button));
+            button.Foreground=selected?crossbarText:crossbarMuted;
+            button.BorderBrush=new SolidColorBrush(selected?crossbarAccent:Color.FromArgb(0,0,0,0));
+            button.Background=selected
+                ? new LinearGradientBrush { StartPoint=new(0,0),EndPoint=new(0,1),GradientStops={new GradientStop{Color=Color.FromArgb(90,crossbarAccent.R,crossbarAccent.G,crossbarAccent.B),Offset=0},new GradientStop{Color=Color.FromArgb(18,crossbarAccent.R,crossbarAccent.G,crossbarAccent.B),Offset=1}} }
+                : new SolidColorBrush(Color.FromArgb(0,0,0,0));
             indicator.Visibility=selected?Visibility.Visible:Visibility.Collapsed;
         }
+        CrossbarNavigationGlow.Visibility=navigation.Any(item=>item.Section==section)?Visibility.Visible:Visibility.Collapsed;
 
         Button[] rails=[CrossbarContinueButton,CrossbarInstalledButton,CrossbarSteamButton,CrossbarEmulatorsButton,CrossbarFavoritesButton,CrossbarRecentButton];
         foreach(Button button in rails)
         {
             bool selected=string.Equals(button.Tag as string,_crossbarSecondaryId,StringComparison.Ordinal);
-            button.Foreground=new SolidColorBrush(selected?Color.FromArgb(255,255,255,255):Color.FromArgb(255,154,169,195));
-            button.Background=new SolidColorBrush(selected?Color.FromArgb(70,35,104,177):Color.FromArgb(0,0,0,0));
-            button.BorderBrush=new SolidColorBrush(selected?Color.FromArgb(255,92,190,255):Color.FromArgb(0,0,0,0));
+            button.Foreground=selected?crossbarText:crossbarMuted;
+            button.Background=new SolidColorBrush(selected?Color.FromArgb(50,crossbarAccent.R,crossbarAccent.G,crossbarAccent.B):Color.FromArgb(0,0,0,0));
+            button.BorderBrush=new SolidColorBrush(selected?crossbarAccent:Color.FromArgb(0,0,0,0));
         }
 
-        IReadOnlyList<CardViewModel> all=ViewModel.CurrentSectionItems;
+        IReadOnlyList<CardViewModel> all=section==NavigationSection.Home?ViewModel.CrossbarRecentItems:ViewModel.CurrentSectionItems;
         IReadOnlyList<CardViewModel> items=games?_crossbarSecondaryId switch
         {
             "continue"=>ViewModel.ContinueItems.Count>0?ViewModel.ContinueItems:all,
@@ -500,15 +536,17 @@ public sealed partial class MainWindow : Window,IDisposable
             "recent"=>ViewModel.RecentItems.Where(card=>card.IsGame).ToArray(),
             _=>all,
         }:all;
-        CardViewModel? featured=(items.Count>0?items[0]:null)??ViewModel.FeaturedItem;
-        CardViewModel[] quickPicks=items.Where(card=>featured is null||card.Id!=featured.Id).Take(12).ToArray();
+        CardViewModel? featured=items.Count>0?items[0]:section==NavigationSection.Library?null:ViewModel.FeaturedItem;
+        CardViewModel[] quickPicks=items.Take(24).ToArray();
         if(quickPicks.Length==0&&featured is not null)quickPicks=[featured];
         CrossbarFeaturedCard.Card=featured;
         CrossbarFeaturedButton.Visibility=featured is null?Visibility.Collapsed:Visibility.Visible;
         CrossbarFeaturedHeading.Visibility=featured is null?Visibility.Collapsed:Visibility.Visible;
-        CrossbarFeaturedHeading.Text=games&&_crossbarSecondaryId=="continue"?"CONTINUE PLAYING":$"{ViewModel.CurrentSectionTitle.ToUpper(CultureInfo.CurrentCulture)} FEATURED";
-        CrossbarQuickPicksTitle.Text=games?"QUICK PICKS":ViewModel.CurrentSectionTitle.ToUpper(CultureInfo.CurrentCulture);
+        CrossbarFeaturedHeading.Text=section==NavigationSection.Home?"FEATURED":games&&_crossbarSecondaryId=="continue"?"CONTINUE PLAYING":$"{ViewModel.CurrentSectionTitle.ToUpper(CultureInfo.CurrentCulture)} FEATURED";
+        CrossbarQuickPicksTitle.Text=section==NavigationSection.Home?"RECENTLY USED":games?"QUICK PICKS":ViewModel.CurrentSectionTitle.ToUpper(CultureInfo.CurrentCulture);
+        string? selectedId=(CrossbarQuickPicksList.SelectedItem as CardViewModel)?.Id;
         CrossbarQuickPicksList.ItemsSource=quickPicks;
+        CrossbarQuickPicksList.SelectedItem=quickPicks.FirstOrDefault(card=>card.Id==selectedId)??quickPicks.FirstOrDefault();
         CrossbarQuickPicksList.Visibility=quickPicks.Length>0?Visibility.Visible:Visibility.Collapsed;
         CrossbarEmptyText.Visibility=quickPicks.Length==0?Visibility.Visible:Visibility.Collapsed;
     }
@@ -631,30 +669,43 @@ public sealed partial class MainWindow : Window,IDisposable
             await CustomizationViewModel.ApplyLayoutAsync(targetLayout);
             await ViewModel.RefreshAsync();
         }
-        if(crossbar)ApplyCrossbarThemeResources();
-        else
-        {
-            await CustomizationViewModel.ApplyThemeAsync(CustomizationViewModel.CurrentThemeId);
-            BrandSubtitle.Text="GAMES · APPS · MEDIA";
-            DashboardBackgroundImage.Opacity=.2;
-            ControllerFooter.Background=null;
-        }
+        ThemeDefinition colorTheme=(await _themes.GetAvailableAsync()).First(theme=>theme.Id==CustomizationViewModel.CurrentThemeId);
+        ApplyTheme(colorTheme);
+        BrandSubtitle.Text=crossbar?"CROSSBAR · GAMES · MEDIA":"GAMES · APPS · MEDIA";
+        DashboardBackgroundImage.Opacity=crossbar?.06:.2;
         if(_isLoaded)UpdateSectionSurface();
         DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,FocusSelectedSectionSurface);
     }
 
-    private void ApplyCrossbarThemeResources()
+    private void ApplyCrossbarPalette(ThemeDefinition theme,ThemeSurfacePalette palette)
     {
-        Color background=Color.FromArgb(255,4,18,48);Color surface=Color.FromArgb(225,7,27,57);Color accent=Color.FromArgb(255,82,220,255);Color muted=Color.FromArgb(255,173,216,232);
-        Application.Current.Resources["NexaBackgroundColor"]=background;
-        Application.Current.Resources["NexaBackgroundBrush"]=new SolidColorBrush(background);
-        Application.Current.Resources["NexaSurfaceBrush"]=new SolidColorBrush(surface);
-        Application.Current.Resources["NexaAccentColor"]=accent;
-        Application.Current.Resources["NexaAccentBrush"]=new SolidColorBrush(accent);
-        Application.Current.Resources["NexaAccentBorderBrush"]=new SolidColorBrush(Color.FromArgb(160,accent.R,accent.G,accent.B));
-        Application.Current.Resources["NexaMutedTextBrush"]=new SolidColorBrush(muted);
-        LinearGradientBrush gradient=new(){StartPoint=new(0,0),EndPoint=new(1,1),GradientStops={new GradientStop{Color=background,Offset=0},new GradientStop{Color=Color.FromArgb(255,7,74,112),Offset=.58},new GradientStop{Color=Color.FromArgb(255,5,15,38),Offset=1}}};
-        Root.Background=gradient;WindowRoot.Background=gradient;TopHeader.Background=new SolidColorBrush(Color.FromArgb(224,3,16,39));ControllerFooter.Background=new SolidColorBrush(Color.FromArgb(224,3,16,39));BrandSubtitle.Text="CROSSBAR · GAMES · MEDIA";DashboardBackgroundImage.Opacity=.06;
+        bool classic=theme.Id==ThemeService.DefaultThemeId;
+        bool gold=theme.Id is "black-gold" or "custom-black-gold";
+        Color accent=ParseColor(classic?"#71BFFF":theme.AccentColor);
+        Color surface=ParseColor(classic?"#07152C":palette.Surface);
+        Color text=ParseColor(classic?"#F2F6FD":palette.Text);
+        SetThemeBrush("CrossbarBackgroundBrush",ParseColor(classic?"#020816":palette.Background));
+        SetThemeBrush("CrossbarTextBrush",text);
+        SetThemeBrush("CrossbarMutedBrush",ParseColor(classic?"#B8C9DF":palette.Muted));
+        SetThemeBrush("CrossbarAccentBrush",accent);
+        SetThemeBrush("CrossbarSurfaceBrush",Color.FromArgb(240,surface.R,surface.G,surface.B));
+        SetThemeBrush("CrossbarElevatedBrush",ParseColor(classic?"#192D4F":palette.Elevated));
+        SetThemeBrush("CrossbarBorderBrush",ParseColor(classic?"#294972":theme.SecondaryAccentColor??palette.Border));
+        SetThemeBrush("CrossbarOverlayBrush",Color.FromArgb(165,surface.R,surface.G,surface.B));
+        SetThemeBrush("CrossbarSelectionBrush",text);
+        SetThemeBrush("CrossbarGlowOuterBrush",Color.FromArgb(24,accent.R,accent.G,accent.B));
+        SetThemeBrush("CrossbarGlowMiddleBrush",Color.FromArgb(89,accent.R,accent.G,accent.B));
+        SetThemeBrush("CrossbarGlowInnerBrush",Color.FromArgb(160,accent.R,accent.G,accent.B));
+        CrossbarWallpaper.Source=new BitmapImage(new Uri(gold?"ms-appx:///Assets/Backgrounds/crossbar-gold-waves.png":"ms-appx:///Assets/Backgrounds/crossbar-blue-waves.png"));
+        bool goldWallpaper=gold&&theme.Background.Type==BackgroundType.Gradient&&theme.Background.Value=="#090806,#302516";
+        CrossbarRoot.Background=classic?(Brush)Application.Current.Resources["CrossbarBackgroundBrush"]:Root.Background;
+        CrossbarWallpaper.Visibility=classic||goldWallpaper?Visibility.Visible:Visibility.Collapsed;
+        if(_activeLayout==InterfaceLayoutType.ClassicCrossbar)
+        {
+            if(classic)SetThemeBrush("NexaAccentBrush",accent);
+            CrossbarControllerFooter.Background=(Brush)Application.Current.Resources["CrossbarSurfaceBrush"];
+            RefreshCrossbarSurface();
+        }
     }
 
     private async Task ResetSettingsCategoryAsync(string categoryId)
@@ -719,13 +770,67 @@ public sealed partial class MainWindow : Window,IDisposable
         static string Yes(bool value)=>value?"Yes":"No";
     }
 
+    private async void HomeShortcut_Click(object sender,RoutedEventArgs e)
+    {
+        switch((sender as FrameworkElement)?.Tag as string)
+        {
+            case "resume":
+                CardViewModel? resume=ViewModel.ContinueItems.Where(card=>card.Item.LastLaunchedAtUtc is not null).OrderByDescending(card=>card.Item.LastLaunchedAtUtc).FirstOrDefault();
+                if(resume is not null)await ViewModel.LaunchAsync(resume);else NavigateToSection(NavigationSection.Games);
+                break;
+            case "favorites": ViewModel.SetLibraryView("Favorites");NavigateToSection(NavigationSection.Library);break;
+            case "library": ViewModel.ClearLibraryFilters();NavigateToSection(NavigationSection.Library);break;
+            case "search": NavigateToSection(NavigationSection.Library);LibrarySearch.Focus(FocusState.Programmatic);break;
+        }
+    }
+    private void LibraryPlatform_SelectionChanged(object sender,SelectionChangedEventArgs e){if(sender is ComboBox{SelectedItem:string value})ViewModel.SetLibraryPlatform(value);}
+    private void LibraryGenre_SelectionChanged(object sender,SelectionChangedEventArgs e){if(sender is ComboBox{SelectedItem:string value})ViewModel.SetLibraryGenre(value);}
+    private void LibrarySource_Click(object sender,RoutedEventArgs e){if(sender is FrameworkElement{Tag:string value})ViewModel.SetLibraryPlatform(value);}
+    private void LibrarySidebar_Click(object sender,RoutedEventArgs e)
+    {
+        if(sender is not FrameworkElement{Tag:string value} element)return;
+        switch(FindAncestor<ItemsControl>(element)?.Tag as string)
+        {
+            case "source": ViewModel.SetLibraryPlatform(value);break;
+            case "genre": ViewModel.SetLibraryGenre(value==ViewModel.LibraryGenre?"All Genres":value);break;
+            default: ViewModel.SetLibraryView(value);break;
+        }
+    }
+    private async void LibrarySelection_ItemInvoked(object? sender,CardViewModel card)
+    {
+        ViewModel.SelectLibraryCard(card);
+        if(LibraryDetailsPanel.Visibility!=Visibility.Visible)await ShowDetailsAsync(card);
+    }
+    private async void LibraryCard_ActionRequested(object? sender,string action)
+    {
+        if(sender is not NexaGameCard{Card:{} card})return;
+        ViewModel.SelectLibraryCard(card);
+        switch(action)
+        {
+            case "play": await ViewModel.LaunchAsync(card);break;
+            case "favorite": await ViewModel.ToggleFavoriteAsync(card);break;
+            case "options": await OpenContextMenuAsync(card,sender as Control);break;
+        }
+    }
+    private async void LibraryPlay_Click(object sender,RoutedEventArgs e){if(ViewModel.LibrarySelection is {} card)await ViewModel.LaunchAsync(card);}
+    private async void LibraryFavorite_Click(object sender,RoutedEventArgs e){if(ViewModel.LibrarySelection is {} card)await ViewModel.ToggleFavoriteAsync(card);}
+    private async void LibraryDetails_Click(object sender,RoutedEventArgs e){if(ViewModel.LibrarySelection is {} card)await ShowDetailsAsync(card);}
+    private async void LibraryOptions_Click(object sender,RoutedEventArgs e){if(ViewModel.LibrarySelection is {} card)await OpenContextMenuAsync(card,sender as Control);}
+
     private void LibrarySearch_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
     {
         if (args.Reason == AutoSuggestionBoxTextChangeReason.UserInput) ViewModel.Search(sender.Text);
     }
     private void LibraryView_SelectionChanged(object sender,SelectionChangedEventArgs e){if(sender is ComboBox{SelectedItem:string value})ViewModel.SetLibraryView(value);}
+    private void ClearLibraryFilters_Click(object sender,RoutedEventArgs e)
+    {
+        ViewModel.ClearLibraryFilters();
+        LibrarySortBox.SelectedIndex=0;
+        LibrarySearch.Focus(FocusState.Programmatic);
+    }
+    private async void RefreshLibrary_Click(object sender,RoutedEventArgs e)=>await ViewModel.RefreshAsync();
     private void LibrarySort_SelectionChanged(object sender,SelectionChangedEventArgs e){if(sender is ComboBox{SelectedItem:string value})ViewModel.SetLibrarySort(value);}
-    private void LibraryPresentation_SelectionChanged(object sender,SelectionChangedEventArgs e){if(sender is ComboBox{SelectedItem:string value})ViewModel.SetLibraryPresentation(value);}
+    private void LibraryPresentation_SelectionChanged(object sender,SelectionChangedEventArgs e){if(sender is ComboBox{SelectedItem:string value}){ViewModel.SetLibraryPresentation(value);ViewModel.SetGamesPresentation(value=="Game Covers"?"Cover Grid":value);}}
     private void GamesPresentation_SelectionChanged(object sender,SelectionChangedEventArgs e){if(sender is ComboBox{SelectedItem:string value})ViewModel.SetGamesPresentation(value);}
     private async void AdaptiveLibrary_ItemInvoked(object? sender,CardViewModel card){await _sounds.PlayAsync(UiSoundEvent.Open);await ShowDetailsAsync(card);}
 
@@ -826,7 +931,7 @@ public sealed partial class MainWindow : Window,IDisposable
         bool apps=ViewModel.SelectedSection.Section==NavigationSection.Apps;
         bool shared=!gallery&&!media&&!collections;
         bool crossbarSurface=_activeLayout==InterfaceLayoutType.ClassicCrossbar;
-        DashboardContent.Visibility=shared&&_activeLayout==InterfaceLayoutType.ModernDashboard?Visibility.Visible:Visibility.Collapsed;
+        DashboardContent.Visibility=(home||apps)&&_activeLayout==InterfaceLayoutType.ModernDashboard?Visibility.Visible:Visibility.Collapsed;
         CrossbarRoot.Visibility=crossbarSurface?Visibility.Visible:Visibility.Collapsed;
         HandheldRoot.Visibility=shared&&_activeLayout==InterfaceLayoutType.CompactHandheld?Visibility.Visible:Visibility.Collapsed;
         GalleryRoot.Visibility=gallery&&!crossbarSurface?Visibility.Visible:Visibility.Collapsed;
@@ -834,9 +939,11 @@ public sealed partial class MainWindow : Window,IDisposable
         CollectionsRoot.Visibility=collections&&!crossbarSurface?Visibility.Visible:Visibility.Collapsed;
         ModernHomeSurface.Visibility=home?Visibility.Visible:Visibility.Collapsed;
         AppsCatalogueRoot.Visibility=apps?Visibility.Visible:Visibility.Collapsed;
-        ModernSectionSurface.Visibility=home||apps?Visibility.Collapsed:Visibility.Visible;
-        LibraryToolsPanel.Visibility=ViewModel.SelectedSection.Section==NavigationSection.Library?Visibility.Visible:Visibility.Collapsed;
-        GamesToolsPanel.Visibility=ViewModel.SelectedSection.Section==NavigationSection.Games?Visibility.Visible:Visibility.Collapsed;
+        ModernSectionSurface.Visibility=shared&&!home&&!apps&&_activeLayout==InterfaceLayoutType.ModernDashboard?Visibility.Visible:Visibility.Collapsed;
+        if(!home){DashboardContent.VerticalScrollMode=ScrollMode.Enabled;DashboardContent.VerticalScrollBarVisibility=ScrollBarVisibility.Auto;}
+        LibraryToolsPanel.Visibility=Visibility.Visible;
+        UpdateLibraryLayout();
+        GamesToolsPanel.Visibility=Visibility.Collapsed;
         TopHeader.Visibility=crossbarSurface?Visibility.Collapsed:Visibility.Visible;
         ControllerFooter.Visibility=crossbarSurface?Visibility.Collapsed:Visibility.Visible;
         DashboardBackgroundImage.Visibility=crossbarSurface?Visibility.Collapsed:Visibility.Visible;
@@ -852,22 +959,34 @@ public sealed partial class MainWindow : Window,IDisposable
         if(!_xamlInitialized||Root.ActualWidth<=0||Root.ActualHeight<=0)return;
         HomeDashboardLayout layout=_homeDensityPolicy.Resolve(Root.ActualWidth,Root.ActualHeight);
         ApplyHeaderDensity(layout.Density);
-        TopHeader.Height=layout.HeaderHeight;TopHeader.Padding=layout.Density switch{HomeDashboardDensity.Large=>new Thickness(60,14,60,14),HomeDashboardDensity.Standard=>new Thickness(48,11,48,11),_=>new Thickness(28,9,28,9)};
-        ControllerFooter.Height=layout.FooterHeight;DashboardFrame.Margin=new Thickness(layout.OuterMargin,layout.Density==HomeDashboardDensity.Compact?10:12,layout.OuterMargin,layout.Density==HomeDashboardDensity.Compact?24:14);DashboardFrame.Spacing=layout.Density==HomeDashboardDensity.Compact?18:13;HeroBanner.Height=layout.HeroHeight;
+        TopHeader.Height=64;TopHeader.Padding=new Thickness(layout.OuterMargin,8,layout.OuterMargin,8);
+        ControllerFooter.Height=36;DashboardFrame.Margin=new Thickness(layout.OuterMargin,layout.Density==HomeDashboardDensity.Compact?10:12,layout.OuterMargin,layout.Density==HomeDashboardDensity.Compact?24:14);DashboardFrame.Spacing=layout.Density==HomeDashboardDensity.Compact?18:13;HeroBanner.Height=Math.Clamp(Root.ActualHeight*.25,210,320);
         ModernHomeSurface.RowSpacing=layout.Density switch{HomeDashboardDensity.Large=>24,HomeDashboardDensity.Standard=>13,_=>18};
         foreach(CardViewModel card in ViewModel.ContinueItems)card.SetDisplaySize(layout.GameCardWidth,layout.GameCardHeight);
         foreach(CardViewModel card in ViewModel.RecentAppItems.Concat(ViewModel.FavoriteItems))card.SetDisplaySize(layout.SquareTileSize,layout.SquareTileSize);
         foreach(CardViewModel card in ViewModel.RecentItems)card.SetDisplaySize(layout.ActivityRowWidth,layout.ActivityRowHeight);
         foreach(GalleryCardViewModel card in GalleryViewModel.HomePreview)card.SetDisplaySize(layout.PhotoCardWidth,layout.PhotoCardHeight);
         foreach(DiscoverAppCardViewModel card in DiscoverAppsViewModel.StreamingItems)card.SetDisplaySize(layout.SquareTileSize);
-        GamesEndpoint.Width=layout.EndpointWidth;GamesEndpoint.Height=layout.GameCardHeight;
-        AppsEndpoint.Width=layout.EndpointWidth;AppsEndpoint.Height=layout.SquareTileSize;
-        PhotosEndpoint.Width=layout.EndpointWidth;PhotosEndpoint.Height=layout.PhotoCardHeight;
-        MediaEndpoint.Width=layout.EndpointWidth;MediaEndpoint.Height=layout.SquareTileSize;
-        FavoritesEndpoint.Width=layout.EndpointWidth;FavoritesEndpoint.Height=layout.SquareTileSize;
-        RecentEndpoint.Width=layout.EndpointWidth;RecentEndpoint.Height=Math.Max(layout.SquareTileSize,layout.ActivityRowHeight*2+8);
-        DashboardContent.VerticalScrollMode=layout.UsesVerticalScrolling?ScrollMode.Enabled:ScrollMode.Disabled;DashboardContent.VerticalScrollBarVisibility=layout.UsesVerticalScrolling?ScrollBarVisibility.Auto:ScrollBarVisibility.Hidden;
-        PlaceHomePanels(layout.Density);BalanceHomePanels(layout.Density);
+        double width = Math.Max(320, Root.ActualWidth - layout.OuterMargin * 2);
+        int columns = Root.ActualWidth >= 1500 ? 6 : Root.ActualWidth >= 1000 ? 4 : 3;
+        foreach(CardViewModel card in ViewModel.ContinueItems)card.SetDisplaySize((width - (columns - 1) * 8) / columns - 2, Math.Clamp(width / columns * .59, 116, 210));
+        bool narrow = Root.ActualWidth < 1100;
+        double serviceWidth = narrow ? width : (width - 14) * 1.6 / 2.6;
+        double activityWidth = narrow ? width : (width - 14) / 2.6;
+        foreach(CardViewModel card in ViewModel.RecentAppItems)card.SetDisplaySize(Math.Max(94,(serviceWidth - 76) / 5), 90);
+        foreach(CardViewModel card in ViewModel.RecentItems)card.SetDisplaySize(Math.Max(180,activityWidth - 46), 44);
+        foreach(DiscoverAppCardViewModel card in DiscoverAppsViewModel.StreamingItems)card.SetDisplaySize(Math.Max(92,(serviceWidth - 84) / 6));
+        Grid.SetColumn(HomeActivityPanel,narrow?0:1);Grid.SetRow(HomeActivityPanel,narrow?1:0);
+        Grid.SetColumnSpan(HomeServicesPanel,narrow?2:1);Grid.SetColumnSpan(HomeActivityPanel,narrow?2:1);
+        HomeShortcuts.ColumnSpacing=narrow?8:16;
+        foreach(Button shortcut in HomeShortcuts.Children.OfType<Button>())
+        {
+            if(shortcut.Content is Grid content) { content.ColumnDefinitions[0].Width=new GridLength(narrow?36:64); content.ColumnSpacing=narrow?6:16; }
+        }
+        // Keep every section reachable at short heights and high display scaling.
+        DashboardContent.VerticalScrollMode=ScrollMode.Enabled;
+        DashboardContent.VerticalScrollBarVisibility=ScrollBarVisibility.Hidden;
+        UpdateLibraryLayout();
     }
 
     private void OnHomeCollectionChanged(object? sender,NotifyCollectionChangedEventArgs args)
@@ -879,13 +998,13 @@ public sealed partial class MainWindow : Window,IDisposable
     private void ApplyHeaderDensity(HomeDashboardDensity density)
     {
         bool compact=density==HomeDashboardDensity.Compact;
-        TopHeader.ColumnDefinitions[0].Width=new GridLength(compact?190:238);
+        TopHeader.ColumnDefinitions[0].Width=new GridLength(compact?160:220);
         foreach(ToggleButton button in VisualDescendants<ToggleButton>(HeaderSections))
         {
-            button.MinWidth=compact?66:88;
-            button.MinHeight=compact?44:48;
-            button.Padding=compact?new Thickness(9,8,9,8):new Thickness(16,10,16,10);
-            button.FontSize=compact?13:15;
+            button.MinWidth=compact?56:72;
+            button.MinHeight=38;
+            button.Padding=compact?new Thickness(6,6,6,6):new Thickness(12,8,12,8);
+            button.FontSize=12;
         }
     }
 
@@ -900,24 +1019,15 @@ public sealed partial class MainWindow : Window,IDisposable
         }
     }
 
-    private void PlaceHomePanels(HomeDashboardDensity density)
+    private void UpdateLibraryLayout()
     {
-        bool compact=density==HomeDashboardDensity.Compact;BrandSubtitle.Visibility=compact?Visibility.Collapsed:Visibility.Visible;
-        Grid.SetColumn(ApplicationsPanel,0);Grid.SetRow(ApplicationsPanel,0);Grid.SetColumnSpan(ApplicationsPanel,compact?2:1);
-        Grid.SetColumn(RecentPhotosPanel,compact?0:1);Grid.SetRow(RecentPhotosPanel,compact?1:0);Grid.SetColumnSpan(RecentPhotosPanel,compact?2:1);
-        Grid.SetColumn(HomeMediaPanel,0);Grid.SetRow(HomeMediaPanel,0);Grid.SetColumnSpan(HomeMediaPanel,compact?3:1);
-        Grid.SetColumn(FavoritesPanel,compact?0:1);Grid.SetRow(FavoritesPanel,compact?1:0);Grid.SetColumnSpan(FavoritesPanel,compact?3:1);
-        Grid.SetColumn(RecentlyAddedPanel,compact?0:2);Grid.SetRow(RecentlyAddedPanel,compact?2:0);Grid.SetColumnSpan(RecentlyAddedPanel,compact?3:1);
-    }
-
-    private void BalanceHomePanels(HomeDashboardDensity density)
-    {
-        HomeMediaPanel.Visibility=DiscoverAppsViewModel.StreamingItems.Count>0?Visibility.Visible:Visibility.Collapsed;RecentlyAddedPanel.Visibility=ViewModel.RecentItems.Count>0?Visibility.Visible:Visibility.Collapsed;
-        if(density==HomeDashboardDensity.Compact)return;
-        bool applications=ViewModel.ApplicationSectionVisibility==Visibility.Visible,photos=GalleryViewModel.HomePreviewVisibility==Visibility.Visible;
-        if(!applications&&photos){Grid.SetColumn(RecentPhotosPanel,0);Grid.SetColumnSpan(RecentPhotosPanel,2);}else if(applications&&!photos){Grid.SetColumn(ApplicationsPanel,0);Grid.SetColumnSpan(ApplicationsPanel,2);}
-        bool media=HomeMediaPanel.Visibility==Visibility.Visible,favorites=FavoritesPanel.Visibility==Visibility.Visible,recent=RecentlyAddedPanel.Visibility==Visibility.Visible;
-        if(media&&!favorites&&recent){Grid.SetColumnSpan(HomeMediaPanel,2);Grid.SetColumn(RecentlyAddedPanel,2);}else if(!media&&favorites&&recent){Grid.SetColumn(FavoritesPanel,0);Grid.SetColumn(RecentlyAddedPanel,1);Grid.SetColumnSpan(RecentlyAddedPanel,2);}else if(media&&favorites&&!recent){Grid.SetColumnSpan(FavoritesPanel,2);}else if(media&&!favorites&&!recent)Grid.SetColumnSpan(HomeMediaPanel,3);else if(!media&&favorites&&!recent){Grid.SetColumn(FavoritesPanel,0);Grid.SetColumnSpan(FavoritesPanel,3);}else if(!media&&!favorites&&recent){Grid.SetColumn(RecentlyAddedPanel,0);Grid.SetColumnSpan(RecentlyAddedPanel,3);}
+        bool sidebar=Root.ActualWidth>=1100;
+        bool details=Root.ActualWidth>=1400;
+        LibrarySidebar.Visibility=sidebar?Visibility.Visible:Visibility.Collapsed;
+        LibrarySidebarColumn.Width=new GridLength(sidebar?204:0);
+        LibraryDetailsPanel.Visibility=details?Visibility.Visible:Visibility.Collapsed;
+        LibraryDetailsColumn.Width=new GridLength(details?Math.Clamp(Root.ActualWidth*.2,280,380):0);
+        ModernSectionSurface.ColumnSpacing=sidebar?20:8;
     }
 
     private void EnsureSectionControlsInitialized()
@@ -937,14 +1047,69 @@ public sealed partial class MainWindow : Window,IDisposable
     private void OnPresentationChanged(object? sender,LayoutPresentationState state)=>DispatcherQueue.TryEnqueue(()=>ApplyPresentation(state));
     private void ApplyPresentation(LayoutPresentationState state)
     {
-        _activeLayout=state.LayoutType;if(!_xamlInitialized)return;DashboardContent.Margin=new Thickness(0,8,0,0);CrossbarRoot.Margin=state.LayoutType==InterfaceLayoutType.ClassicCrossbar?new Thickness(0):new Thickness(state.OuterMargin,8,state.OuterMargin,state.OuterMargin);HandheldRoot.Margin=new Thickness(state.OuterMargin,6,state.OuterMargin,state.OuterMargin);UpdateSectionSurface();
+        _activeLayout=state.LayoutType;if(!_xamlInitialized)return;ApplyInterfaceScale(_interfaceScale);DashboardContent.Margin=new Thickness(0,8,0,0);CrossbarRoot.Margin=state.LayoutType==InterfaceLayoutType.ClassicCrossbar?new Thickness(0):new Thickness(state.OuterMargin,8,state.OuterMargin,state.OuterMargin);HandheldRoot.Margin=new Thickness(state.OuterMargin,6,state.OuterMargin,state.OuterMargin);UpdateSectionSurface();
     }
     private void OnThemeChanged(object? sender,NexaStation.Customization.Models.ThemeChangedEventArgs args)=>DispatcherQueue.TryEnqueue(()=>ApplyTheme(args.Theme));
     private void ApplyTheme(ThemeDefinition theme)
     {
-        if(!_xamlInitialized)return;Root.RequestedTheme=theme.ThemeType==ThemeType.Light?ElementTheme.Light:ElementTheme.Dark;Color accent=ParseColor(theme.AccentColor);Color readableAccentText=ParseColor(ThemeService.ReadableForeground(theme.AccentColor));Application.Current.Resources["NexaAccentColor"]=accent;Application.Current.Resources["NexaAccentBrush"]=new SolidColorBrush(accent);Application.Current.Resources["NexaInverseAccentTextBrush"]=new SolidColorBrush(readableAccentText);Application.Current.Resources["NexaAccentBorderBrush"]=new SolidColorBrush(Color.FromArgb(128,accent.R,accent.G,accent.B));Application.Current.Resources["NexaAccentTintBrush"]=new SolidColorBrush(Color.FromArgb(64,accent.R,accent.G,accent.B));string backgroundValue=theme.Background.Type is BackgroundType.Solid or BackgroundType.Gradient&&theme.Background.Value?.StartsWith('#')==true?theme.Background.Value.Split(',')[0]:"#090B13";Color background=theme.ThemeType==ThemeType.Light?ParseColor("#F4F6FA"):theme.ThemeType==ThemeType.HighContrast?Colors.Black:ParseColor(backgroundValue);Application.Current.Resources["NexaBackgroundColor"]=background;Application.Current.Resources["NexaBackgroundBrush"]=new SolidColorBrush(background);Application.Current.Resources["NexaSurfaceBrush"]=new SolidColorBrush(theme.ThemeType==ThemeType.Light?ParseColor("#FFFDFD"):theme.ThemeType==ThemeType.HighContrast?Colors.Black:ParseColor("#171B2B"));Application.Current.Resources["NexaMutedTextBrush"]=new SolidColorBrush(theme.ThemeType==ThemeType.Light?ParseColor("#445064"):theme.ThemeType==ThemeType.HighContrast?Colors.White:ParseColor("#A8B2C7"));Root.Background=theme.Background.Type switch{BackgroundType.Gradient=>new LinearGradientBrush{StartPoint=new(0,0),EndPoint=new(1,1),GradientStops={new GradientStop{Color=background,Offset=0},new GradientStop{Color=ParseColor(theme.SecondaryAccentColor??theme.AccentColor),Offset=1}}},BackgroundType.Image when theme.Background.Value is { } path&&File.Exists(path)=>new ImageBrush{ImageSource=new BitmapImage(new Uri(path)),Stretch=theme.Background.Stretch==BackgroundStretch.Fit?Stretch.Uniform:theme.Background.Stretch==BackgroundStretch.Center?Stretch.None:Stretch.UniformToFill,Opacity=theme.Background.Opacity*(1-theme.Background.DarkeningOverlay)},_=>new SolidColorBrush(background)};
+        if(!_xamlInitialized)return;
+        Root.RequestedTheme=theme.ThemeType==ThemeType.Light?ElementTheme.Light:ElementTheme.Dark;
+        string backgroundValue=theme.Background.Type is BackgroundType.Solid or BackgroundType.Gradient&&theme.Background.Value?.StartsWith('#')==true?theme.Background.Value.Split(',')[0]:"#0B1220";
+        ThemeSurfacePalette palette=ThemeSurfacePalette.Resolve(theme.ThemeType,backgroundValue,theme.Id);
+        Color accent=ParseColor(theme.AccentColor);
+        Color background=ParseColor(palette.Background);
+        bool highContrast=theme.ThemeType==ThemeType.HighContrast;
+        Application.Current.Resources["NexaAccentColor"]=accent;
+        Application.Current.Resources["NexaBackgroundColor"]=background;
+        SetThemeBrush("NexaBackgroundBrush",background);
+        SetThemeBrush("NexaSurfaceBrush",ParseColor(palette.Surface));
+        SetThemeBrush("NexaPanelBrush",ParseColor(palette.Surface));
+        SetThemeBrush("NexaChromeBrush",ParseColor(palette.Surface));
+        SetThemeBrush("NexaFooterBrush",ParseColor(palette.Surface));
+        SetThemeBrush("NexaQuickPanelBrush",ParseColor(palette.Surface));
+        SetThemeBrush("NexaToastBrush",ParseColor(palette.Elevated));
+        SetThemeBrush("NexaElevatedBrush",ParseColor(palette.Elevated));
+        SetThemeBrush("NexaTextBrush",ParseColor(palette.Text));
+        SetThemeBrush("NexaMutedTextBrush",ParseColor(palette.Muted));
+        SetThemeBrush("NexaCardBorderBrush",ParseColor(palette.Border));
+        SetThemeBrush("NexaHeroBorderBrush",ParseColor(palette.Border));
+        SetThemeBrush("NexaAccentBrush",accent);
+        SetThemeBrush("NexaInverseAccentTextBrush",ParseColor(ThemeService.ReadableForeground(theme.AccentColor)));
+        SetThemeBrush("NexaAccentBorderBrush",Color.FromArgb(160,accent.R,accent.G,accent.B));
+        SetThemeBrush("NexaAccentTintBrush",highContrast?Colors.Black:Color.FromArgb(32,accent.R,accent.G,accent.B));
+        SetThemeBrush("NexaFocusPrimaryBrush",ParseColor(palette.Text));
+        SetThemeBrush("NexaFocusSecondaryBrush",accent);
+        if(Application.Current.Resources["NexaWindowScrimBrush"] is LinearGradientBrush scrim)
+            foreach(GradientStop stop in scrim.GradientStops)stop.Color=Color.FromArgb(highContrast?(byte)255:(byte)(175+stop.Offset*75),background.R,background.G,background.B);
+        Root.Background=theme.Background.Type switch
+        {
+            BackgroundType.Gradient when !highContrast=>new LinearGradientBrush{StartPoint=new(0,0),EndPoint=new(1,1),GradientStops={new GradientStop{Color=background,Offset=0},new GradientStop{Color=ParseColor(theme.Background.Value?.Split(',').ElementAtOrDefault(1)??theme.SecondaryAccentColor??theme.AccentColor),Offset=1}}},
+            BackgroundType.Image when !highContrast&&theme.Background.Value is { } path&&File.Exists(path)=>new ImageBrush{ImageSource=new BitmapImage(new Uri(path)),Stretch=theme.Background.Stretch==BackgroundStretch.Fit?Stretch.Uniform:theme.Background.Stretch==BackgroundStretch.Center?Stretch.None:Stretch.UniformToFill,Opacity=theme.Background.Opacity*(1-theme.Background.DarkeningOverlay)},
+            _=>new SolidColorBrush(background),
+        };
+        WindowRoot.Background=(Brush)Application.Current.Resources["NexaBackgroundBrush"];
+        TopHeader.Background=(Brush)Application.Current.Resources["NexaChromeBrush"];
+        ControllerFooter.Background=(Brush)Application.Current.Resources["NexaFooterBrush"];
+        ApplyCrossbarPalette(theme,palette);
+        if(Application.Current.Resources["NexaCardGradient"] is LinearGradientBrush cardGradient)
+            foreach(GradientStop stop in cardGradient.GradientStops)stop.Color=ParseColor(stop.Offset<.5?palette.Surface:palette.Elevated);
     }
-    private static Color ParseColor(string value){string hex=value.TrimStart('#');if(hex.Length!=6)return Colors.DeepSkyBlue;return Color.FromArgb(255,byte.Parse(hex.AsSpan(0,2),NumberStyles.HexNumber,CultureInfo.InvariantCulture),byte.Parse(hex.AsSpan(2,2),NumberStyles.HexNumber,CultureInfo.InvariantCulture),byte.Parse(hex.AsSpan(4,2),NumberStyles.HexNumber,CultureInfo.InvariantCulture));}
+
+    private static void SetThemeBrush(string key,Color color)
+    {
+        // Keep the brush instance: existing StaticResource consumers hold this object.
+        if(Application.Current.Resources.TryGetValue(key,out object? value)&&value is SolidColorBrush brush)brush.Color=color;
+        else Application.Current.Resources[key]=new SolidColorBrush(color);
+    }
+
+    private static Color ParseColor(string value)
+    {
+        string hex=value.TrimStart('#');
+        if(hex.Length is not (6 or 8))return Colors.DeepSkyBlue;
+        byte alpha=hex.Length==8?byte.Parse(hex.AsSpan(0,2),NumberStyles.HexNumber,CultureInfo.InvariantCulture):(byte)255;
+        int offset=hex.Length==8?2:0;
+        return Color.FromArgb(alpha,byte.Parse(hex.AsSpan(offset,2),NumberStyles.HexNumber,CultureInfo.InvariantCulture),byte.Parse(hex.AsSpan(offset+2,2),NumberStyles.HexNumber,CultureInfo.InvariantCulture),byte.Parse(hex.AsSpan(offset+4,2),NumberStyles.HexNumber,CultureInfo.InvariantCulture));
+    }
     private void GallerySearch_TextChanged(AutoSuggestBox sender,AutoSuggestBoxTextChangedEventArgs args){if(args.Reason==AutoSuggestionBoxTextChangeReason.UserInput)GalleryViewModel.Search(sender.Text);}
     private async void GalleryView_SelectionChanged(object sender,SelectionChangedEventArgs e){if(!_isLoaded)return;if(sender is ComboBox{SelectedItem:string value}){GalleryViewKind view=value switch{"Timeline"=>GalleryViewKind.Timeline,"Folders"=>GalleryViewKind.Folders,"Grid"=>GalleryViewKind.Grid,"Albums"=>GalleryViewKind.Albums,_=>GalleryViewKind.Home};await GalleryViewModel.SetViewAsync(view);}}
     private async void GalleryGrid_SelectionChanged(object sender,SelectionChangedEventArgs e){if(!_isLoaded)return;if(sender is ComboBox{SelectedItem:string value})await GalleryViewModel.SetGridAsync(value switch{"Small"=>GalleryGridSize.Small,"Large"=>GalleryGridSize.Large,_=>GalleryGridSize.Medium});}
@@ -1271,7 +1436,7 @@ public sealed partial class MainWindow : Window,IDisposable
     private async Task ShowAppearanceSettingsAsync()
     {
         InterfaceLayoutDefinition[] layouts=CustomizationViewModel.Layouts.ToArray();ThemeDefinition[] themes=CustomizationViewModel.Themes.ToArray();UiSoundPack[] packs=(await _sounds.GetPacksAsync()).ToArray();PerformanceSettings currentPerformance=await _performance.GetAsync();ThemeDefinition initialTheme=themes.FirstOrDefault(x=>x.Id==CustomizationViewModel.CurrentThemeId)??themes[0];
-        ComboBox layoutBox=new(){Header="Interface layout",ItemsSource=layouts,DisplayMemberPath="DisplayName",SelectedItem=layouts.FirstOrDefault(x=>x.Id==CustomizationViewModel.CurrentLayoutId),MinWidth=420};ComboBox themeBox=new(){Header="Theme",ItemsSource=themes,DisplayMemberPath="Name",SelectedItem=initialTheme,MinWidth=420};TextBox accent=new(){Header="Primary accent (#RRGGBB)",Text=initialTheme.AccentColor,MinWidth=420};TextBox secondaryAccent=new(){Header="Secondary accent (#RRGGBB)",Text=initialTheme.SecondaryAccentColor??initialTheme.AccentColor,MinWidth=420};TextBlock contrastStatus=new(){TextWrapping=TextWrapping.Wrap,Opacity=.85};Button restoreColors=new(){Content="Restore Accessible Colors"};ComboBox backgroundChoice=new(){Header="Background",ItemsSource=new[]{"Theme default","Solid color","Gradient","User-selected image","Approved Gallery image","Selected-item artwork","No background"},SelectedIndex=0,MinWidth=420};ComboBox stretch=new(){Header="Image fit",ItemsSource=Enum.GetValues<BackgroundStretch>(),SelectedItem=BackgroundStretch.Fill,MinWidth=420};NumberBox blur=new(){Header="Blur amount",Minimum=0,Maximum=50,Value=0,SpinButtonPlacementMode=NumberBoxSpinButtonPlacementMode.Inline};Slider overlay=new(){Header="Darkening overlay",Minimum=0,Maximum=100,Value=35};Slider opacity=new(){Header="Background opacity",Minimum=0,Maximum=100,Value=100};Button chooseImage=new(){Content="Choose Local Image"};TextBlock imageStatus=new(){Text="No new image selected.",Opacity=.75,TextWrapping=TextWrapping.Wrap};string? selectedImage=null;chooseImage.Click+=async(_,_)=>{selectedImage=await PickArtworkAsync();imageStatus.Text=selectedImage is null?"No new image selected.":$"Managed copy will be created from {Path.GetFileName(selectedImage)}.";};
+        ComboBox layoutBox=new(){Header="Interface layout",ItemsSource=layouts,DisplayMemberPath="DisplayName",SelectedItem=layouts.FirstOrDefault(x=>x.Id==CustomizationViewModel.CurrentLayoutId),MinWidth=420};ComboBox themeBox=new(){Header="Color scheme (all themes)",ItemsSource=themes,DisplayMemberPath="Name",SelectedItem=initialTheme,MinWidth=420};TextBox accent=new(){Header="Primary accent (#RRGGBB)",Text=initialTheme.AccentColor,MinWidth=420};TextBox secondaryAccent=new(){Header="Secondary accent (#RRGGBB)",Text=initialTheme.SecondaryAccentColor??initialTheme.AccentColor,MinWidth=420};TextBlock contrastStatus=new(){TextWrapping=TextWrapping.Wrap,Opacity=.85};Button restoreColors=new(){Content="Restore Accessible Colors"};ComboBox backgroundChoice=new(){Header="Background",ItemsSource=new[]{"Theme default","Solid color","Gradient","User-selected image","Approved Gallery image","Selected-item artwork","No background"},SelectedIndex=0,MinWidth=420};ComboBox stretch=new(){Header="Image fit",ItemsSource=Enum.GetValues<BackgroundStretch>(),SelectedItem=BackgroundStretch.Fill,MinWidth=420};NumberBox blur=new(){Header="Blur amount",Minimum=0,Maximum=50,Value=0,SpinButtonPlacementMode=NumberBoxSpinButtonPlacementMode.Inline};Slider overlay=new(){Header="Darkening overlay",Minimum=0,Maximum=100,Value=35};Slider opacity=new(){Header="Background opacity",Minimum=0,Maximum=100,Value=100};Button chooseImage=new(){Content="Choose Local Image"};TextBlock imageStatus=new(){Text="No new image selected.",Opacity=.75,TextWrapping=TextWrapping.Wrap};string? selectedImage=null;chooseImage.Click+=async(_,_)=>{selectedImage=await PickArtworkAsync();imageStatus.Text=selectedImage is null?"No new image selected.":$"Managed copy will be created from {Path.GetFileName(selectedImage)}.";};
         ComboBox presetBox=new(){Header="Visual performance",ItemsSource=Enum.GetValues<VisualPerformancePreset>().Where(x=>x!=VisualPerformancePreset.Custom).ToArray(),SelectedItem=currentPerformance.Preset==VisualPerformancePreset.Custom?VisualPerformancePreset.Balanced:currentPerformance.Preset,MinWidth=420};CheckBox reducedMotion=new(){Content="Reduced motion",IsChecked=currentPerformance.ReducedMotion};ComboBox soundBox=new(){Header="UI sound pack",ItemsSource=packs,DisplayMemberPath="Name",SelectedValuePath="Id",SelectedValue=await _settings.GetAsync("Interface.SoundPackId","nexa-soft"),MinWidth=420};Slider soundVolume=new(){Header="UI sound volume",Minimum=0,Maximum=100,Value=await _settings.GetAsync("Interface.SoundVolume",.6)*100,MinWidth=420};TextBlock preview=new(){TextWrapping=TextWrapping.Wrap,Opacity=.8};
         string ContrastBackground(){ThemeDefinition selected=themeBox.SelectedItem as ThemeDefinition??initialTheme;if(backgroundChoice.SelectedItem as string=="Solid color")return accent.Text;return selected.ThemeType==ThemeType.Light?"#F4F6FA":selected.ThemeType==ThemeType.HighContrast?"#000000":selected.Background.Value?.Split(',')[0] is { } value&&value.StartsWith('#')?value:"#090B13";}void UpdateContrast(){double ratio=ThemeService.ContrastRatio(accent.Text,ContrastBackground());contrastStatus.Text=ratio>=4.5?$"Accent contrast: {ratio:F1}:1. Readable foreground text will be selected automatically.":$"Warning: accent contrast is only {ratio:F1}:1 against the selected surface. You may override this warning, or restore accessible colors.";}restoreColors.Click+=(_,_)=>{ThemeDefinition selected=themeBox.SelectedItem as ThemeDefinition??initialTheme;accent.Text=selected.AccentColor;secondaryAccent.Text=selected.SecondaryAccentColor??selected.AccentColor;UpdateContrast();};accent.TextChanged+=(_,_)=>UpdateContrast();secondaryAccent.TextChanged+=(_,_)=>UpdateContrast();backgroundChoice.SelectionChanged+=(_,_)=>UpdateContrast();
         void UpdatePreview(){if(layoutBox.SelectedItem is InterfaceLayoutDefinition selected)preview.Text=$"Preview: {selected.DisplayName}\n{selected.Description}\nNavigation: {(selected.LayoutType==InterfaceLayoutType.ClassicCrossbar?"category-first":selected.LayoutType==InterfaceLayoutType.CompactHandheld?"tabs and compact grid":"dashboard rows")}. No library query is run for this preview.";}layoutBox.SelectionChanged+=(_,_)=>UpdatePreview();themeBox.SelectionChanged+=async(_,_)=>{if(themeBox.SelectedItem is ThemeDefinition selected){accent.Text=selected.AccentColor;secondaryAccent.Text=selected.SecondaryAccentColor??selected.AccentColor;UpdateContrast();await CustomizationViewModel.PreviewThemeAsync(selected.Id);}};UpdatePreview();UpdateContrast();
@@ -1282,7 +1447,7 @@ public sealed partial class MainWindow : Window,IDisposable
         try
         {
             if(choice=="Solid color")background=new(BackgroundType.Solid,accent.Text);else if(choice=="Gradient")background=new(BackgroundType.Gradient,$"{accent.Text},{secondaryAccent.Text}");else if(choice=="No background")background=new(BackgroundType.None);else if(choice is "User-selected image" or "Selected-item artwork"){string? source=choice=="User-selected image"?selectedImage:(FocusManager.GetFocusedElement(Root.XamlRoot) as FrameworkElement)?.DataContext is CardViewModel selectedCard?selectedCard.Item.BackgroundAsset?.LocalPath??selectedCard.Item.CoverAsset?.LocalPath:null;if(source is null)throw new InvalidOperationException("Choose an image or focus a card with local artwork first.");background=await _themeAssets.ImportImageAsync(source,stretch.SelectedItem is BackgroundStretch selectedStretch?selectedStretch:BackgroundStretch.Fill,(int)blur.Value,overlay.Value/100d,opacity.Value/100d);}else if(choice=="Approved Gallery image"){GalleryBackgroundSelection gallery=await _galleryPersistence.GetBackgroundAsync()??throw new InvalidOperationException("Set a non-private Gallery image as the Gallery background first.");GalleryMediaItem item=await _galleryPersistence.GetMediaItemAsync(gallery.MediaItemId)??throw new InvalidOperationException("The approved Gallery background is unavailable.");if(item.SourcePrivacyLevel==GalleryPrivacyLevel.Private)throw new InvalidOperationException("Private Gallery sources cannot supply interface backgrounds.");background=new(BackgroundType.Image,gallery.ManagedPath,stretch.SelectedItem is BackgroundStretch galleryStretch?galleryStretch:BackgroundStretch.Fill,(int)blur.Value,overlay.Value/100d,opacity.Value/100d,true);}
-            bool customBackground=choice!="Theme default";if(customColors||customBackground){ThemeDefinition custom=selectedTheme with{Id="custom-local",Name="Custom Local",Description="User-approved local colors and background.",ThemeType=ThemeType.Custom,AccentColor=accent.Text.Trim(),SecondaryAccentColor=secondaryAccent.Text.Trim(),Background=background,BuiltIn=false,AuthorDisplayName="Local user"};ThemeDefinition saved=await _themes.SaveCustomAsync(custom);await CustomizationViewModel.ApplyThemeAsync(saved.Id);await CustomizationViewModel.InitializeAsync();}else await CustomizationViewModel.ApplyThemeAsync(selectedTheme.Id);
+            bool customBackground=choice!="Theme default";if(customColors||customBackground){ThemeDefinition custom=selectedTheme with{Id=selectedTheme.Id is "black-gold" or "custom-black-gold"?"custom-black-gold":"custom-local",Name=selectedTheme.Id is "black-gold" or "custom-black-gold"?"Custom Black & Gold":"Custom Local",Description="User-approved local colors and background.",ThemeType=ThemeType.Custom,AccentColor=accent.Text.Trim(),SecondaryAccentColor=secondaryAccent.Text.Trim(),Background=background,BuiltIn=false,AuthorDisplayName="Local user"};ThemeDefinition saved=await _themes.SaveCustomAsync(custom);await CustomizationViewModel.ApplyThemeAsync(saved.Id);await CustomizationViewModel.InitializeAsync();}else await CustomizationViewModel.ApplyThemeAsync(selectedTheme.Id);
         }
         catch(Exception ex) when(ex is ArgumentException or InvalidOperationException or IOException){await CustomizationViewModel.CancelThemePreviewAsync();ViewModel.ReportStatus($"Appearance was not applied: {ex.Message}");await _sounds.PlayAsync(UiSoundEvent.Error);return;}
         if(presetBox.SelectedItem is VisualPerformancePreset selectedPreset)await _performance.ApplyAsync(selectedPreset,reducedMotion.IsChecked==true);if(soundBox.SelectedItem is UiSoundPack selectedPack)await _sounds.ApplyPackAsync(selectedPack.Id);await _sounds.SetVolumeAsync(soundVolume.Value/100d);await CustomizationViewModel.RefreshPresentationAsync();await ViewModel.RefreshAsync();FocusRestoreResult restore=await _semanticFocus.RestoreAsync(new(ViewModel.SelectedSection.Section,_layouts.CurrentLayoutId,ViewModel.Rows.SelectMany(x=>x.Items).Select(x=>x.Id).ToArray(),preferred));if(restore.TargetId is not null)DispatcherQueue.TryEnqueue(()=>FocusCard(restore.TargetId));await _sounds.PlayAsync(UiSoundEvent.Confirm);ViewModel.ReportStatus("Interface settings applied.");
@@ -1688,6 +1853,7 @@ public sealed partial class MainWindow : Window,IDisposable
         {
             int rowIndex = FindRowIndex(card);
             ViewModel.SelectItem(card, rowIndex);
+            if(ViewModel.CurrentSectionItems.Any(item=>item.Id==card.Id))ViewModel.SelectLibraryCard(card);
             _ = ViewModel.PreviewFocusedArtworkAsync(card);
         }
     }
@@ -2451,9 +2617,13 @@ public sealed partial class MainWindow : Window,IDisposable
     {
         _interfaceScale = Math.Clamp(scale, .8, 1.5);
         if (!_xamlInitialized || WindowRoot.ActualWidth <= 0 || WindowRoot.ActualHeight <= 0) return;
-        Root.Width = WindowRoot.ActualWidth / _interfaceScale;
-        Root.Height = WindowRoot.ActualHeight / _interfaceScale;
-        Root.RenderTransform = new ScaleTransform { ScaleX = _interfaceScale, ScaleY = _interfaceScale };
+        // Preserve the reference composition on large displays while retaining the user's scale multiplier.
+        double displayScale = _activeLayout is InterfaceLayoutType.ModernDashboard or InterfaceLayoutType.ClassicCrossbar
+            ? Math.Max(1, Math.Min(WindowRoot.ActualWidth / 1672, WindowRoot.ActualHeight / 941)) : 1;
+        double effectiveScale = _interfaceScale * displayScale;
+        Root.Width = WindowRoot.ActualWidth / effectiveScale;
+        Root.Height = WindowRoot.ActualHeight / effectiveScale;
+        Root.RenderTransform = new ScaleTransform { ScaleX = effectiveScale, ScaleY = effectiveScale };
     }
 
     private bool IsSectionAllowedForGuest(NavigationSection section) => section switch
@@ -2678,7 +2848,7 @@ public sealed partial class MainWindow : Window,IDisposable
             timer.Stop();_logger.Information("OnScreenKeyboardCompleted","The local on-screen keyboard session completed.",new Dictionary<string,object?>{{"Submitted",result.Submitted},{"OpenMilliseconds",timer.Elapsed.TotalMilliseconds},{"Sensitive",false}});
             if(!result.Submitted){origin?.Focus(FocusState.Programmatic);return;}
             string query=result.Text??string.Empty;
-            if(ViewModel.SelectedSection.Section==NavigationSection.Gallery){GallerySearch.Text=query;GalleryViewModel.Search(query);}else{if(ViewModel.SelectedSection.Section==NavigationSection.Library)LibrarySearch.Text=query;ViewModel.Search(query);}
+            if(ViewModel.SelectedSection.Section==NavigationSection.Gallery){GallerySearch.Text=query;GalleryViewModel.Search(query);}else{NavigateToSection(NavigationSection.Library);LibrarySearch.Text=query;ViewModel.Search(query);}
             DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,FocusRememberedOrFirstCard);
         }
         finally{_inputContext.SetCurrent(CurrentInputContext());}
@@ -2885,7 +3055,7 @@ public sealed partial class MainWindow : Window,IDisposable
         int target=current;
         if(owner is GridView)
         {
-            int columns=RealizedColumnCount(owner);
+            int columns=FindAncestor<NexaAdaptiveLibraryGrid>(owner)?.ColumnCount??RealizedColumnCount(owner);
             int column=current%columns;
             target=direction switch
             {
@@ -2906,7 +3076,7 @@ public sealed partial class MainWindow : Window,IDisposable
             target=direction switch{FocusNavigationDirection.Up=>current-1,FocusNavigationDirection.Down=>current+1,_=>current};
             if(direction is FocusNavigationDirection.Left or FocusNavigationDirection.Right)return false;
         }
-        if(target==current||target<0||target>=owner.Items.Count)return true;
+        if(target==current||target<0||target>=owner.Items.Count)return false;
         object item=owner.Items[target];owner.ScrollIntoView(item,ScrollIntoViewAlignment.Default);owner.UpdateLayout();
         if(owner.ContainerFromIndex(target) is Control realized&&realized.Focus(FocusState.Keyboard))return true;
         DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,()=>
@@ -2936,6 +3106,15 @@ public sealed partial class MainWindow : Window,IDisposable
     private void OnFocusRestoreRequested(object? sender, string? itemId)
     {
         DispatcherQueue.TryEnqueue(() => FocusCard(itemId));
+    }
+
+    private void OnDashboardPropertyChanged(object? sender,System.ComponentModel.PropertyChangedEventArgs args)
+    {
+        if(_disposed)return;
+        if(_isLoaded&&args.PropertyName==nameof(DashboardViewModel.ContinueItems))
+            DispatcherQueue.TryEnqueue(ApplyHomeDensity);
+        if(!_disposed&&_activeLayout==InterfaceLayoutType.ClassicCrossbar&&args.PropertyName==nameof(DashboardViewModel.CurrentSectionItems))
+            RefreshCrossbarSurface();
     }
 
     private void OnGalleryFocusRestoreRequested(object? sender,string? itemId)=>DispatcherQueue.TryEnqueue(()=>FocusGalleryCard(itemId));
@@ -3107,6 +3286,7 @@ public sealed partial class MainWindow : Window,IDisposable
         if(_disposed)return;_disposed=true;
         _inputService.ActionTriggered -= OnInputActionTriggered;
         ViewModel.FocusRestoreRequested -= OnFocusRestoreRequested;
+        ViewModel.PropertyChanged -= OnDashboardPropertyChanged;
         GalleryViewModel.FocusRestoreRequested -= OnGalleryFocusRestoreRequested;
         _slideshow.ItemChanged -= OnSlideshowItemChanged;
         _quickMenu.StateChanged -= OnQuickMenuStateChanged;

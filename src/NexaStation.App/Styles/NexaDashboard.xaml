@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <LinearGradientBrush x:Key="NexaHeroFallbackBrush" StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#111929" Offset="0" /><GradientStop Color="#27446B" Offset="0.58" /><GradientStop Color="#173A3A" Offset="1" /></LinearGradientBrush>
+  <LinearGradientBrush x:Key="NexaHeroFallbackBrush" StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#101D30" Offset="0" /><GradientStop Color="#203E59" Offset="0.58" /><GradientStop Color="#17463F" Offset="1" /></LinearGradientBrush>
   <LinearGradientBrush x:Key="NexaHeroScrimBrush" StartPoint="0,0.5" EndPoint="0.82,0.5"><GradientStop Color="#F6090B13" Offset="0" /><GradientStop Color="#C2090B13" Offset="0.43" /><GradientStop Color="#26090B13" Offset="0.8" /><GradientStop Color="#00090B13" Offset="1" /></LinearGradientBrush>
-  <LinearGradientBrush x:Key="NexaWindowScrimBrush" StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#CC080A11" Offset="0" /><GradientStop Color="#F2090B13" Offset="0.62" /><GradientStop Color="#FF090B13" Offset="1" /></LinearGradientBrush>
-  <LinearGradientBrush x:Key="NexaFallbackGlowBrush" StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#805BE0C5" Offset="0" /><GradientStop Color="#206B7EEA" Offset="0.55" /><GradientStop Color="#005BE0C5" Offset="1" /></LinearGradientBrush>
+  <LinearGradientBrush x:Key="NexaWindowScrimBrush" StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#A0071422" Offset="0" /><GradientStop Color="#E0071422" Offset="0.62" /><GradientStop Color="#FA071422" Offset="1" /></LinearGradientBrush>
+  <LinearGradientBrush x:Key="NexaFallbackGlowBrush" StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#3862E4CD" Offset="0" /><GradientStop Color="#20253F72" Offset="0.55" /><GradientStop Color="#005BE0C5" Offset="1" /></LinearGradientBrush>
 </ResourceDictionary>

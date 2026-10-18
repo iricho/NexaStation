@@ -11,7 +11,8 @@ public sealed partial class ThemeService(ICustomizationStore store,ISettingsServ
     public const string DefaultThemeId="nexa-dark";private string? _previewOrigin;
     private static readonly ThemeDefinition[] BuiltIns=
     [
-        Theme("nexa-dark","Nexa Dark","Dark navy surfaces with a clear blue accent.",ThemeType.Dark,"#4F8DFF","#5BE0C5",BackgroundType.Gradient,CardShape.Rounded,.88,true,AnimationIntensity.Balanced,"nexa-soft"),
+        Theme("nexa-dark","Nexa Dark","Layered midnight surfaces with a crisp teal accent.",ThemeType.Dark,"#35E4CF","#4F8DFF",BackgroundType.Gradient,CardShape.Rounded,.88,true,AnimationIntensity.Balanced,"nexa-soft"),
+        new("black-gold","Black & Gold","Warm black surfaces and adjustable gold accents for every layout.",ThemeType.Dark,"#E4BD63","#AA7B32",new(BackgroundType.Gradient,"#090806,#302516"),CardShape.Rounded,.94,true,AnimationIntensity.Balanced,"nexa-soft",true,"1.0","NexaStation","0.7"),
         Theme("obsidian","Obsidian","Near-black, subtle contrast, and low motion.",ThemeType.Dark,"#9AA7BD","#D3DAE8",BackgroundType.Solid,CardShape.Soft,.96,false,AnimationIntensity.Low,"minimal-click"),
         Theme("aurora","Aurora","An original teal and purple dark gradient.",ThemeType.Dark,"#5BE0C5","#A776FF",BackgroundType.Gradient,CardShape.Rounded,.82,true,AnimationIntensity.Balanced,"nexa-soft"),
         Theme("light-room","Light Room","Light opaque surfaces with dark readable text.",ThemeType.Light,"#2458C6","#167468",BackgroundType.Solid,CardShape.Soft,1,false,AnimationIntensity.Low,"minimal-click"),
@@ -41,6 +42,6 @@ public sealed partial class ThemeService(ICustomizationStore store,ISettingsServ
         return .2126*red+.7152*green+.0722*blue;
     }
     private async Task<ThemeDefinition> FindAsync(string id,CancellationToken token)=>(await GetAvailableAsync(token)).FirstOrDefault(x=>x.Id==id&&x.Enabled)??throw new ArgumentException("The requested theme is unavailable.",nameof(id));
-    private static ThemeDefinition Theme(string id,string name,string description,ThemeType type,string accent,string secondary,BackgroundType background,CardShape shape,double opacity,bool blur,AnimationIntensity animation,string sound)=>new(id,name,description,type,accent,secondary,new(background,background==BackgroundType.Gradient?"#090B13,#20304D":type==ThemeType.Light?"#F4F6FA":"#090B13"),shape,opacity,blur,animation,sound,true,"1.0","NexaStation","0.7");
+    private static ThemeDefinition Theme(string id,string name,string description,ThemeType type,string accent,string secondary,BackgroundType background,CardShape shape,double opacity,bool blur,AnimationIntensity animation,string sound)=>new(id,name,description,type,accent,secondary,new(background,background==BackgroundType.Gradient?"#071422,#142B42":type==ThemeType.Light?"#F4F6FA":"#090B13"),shape,opacity,blur,animation,sound,true,"1.0","NexaStation","0.7");
     [GeneratedRegex("^#[0-9A-Fa-f]{6}$",RegexOptions.CultureInvariant)]private static partial Regex ColorPattern();
 }
